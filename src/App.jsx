@@ -421,7 +421,7 @@ function ChatTab({ user, channel }) {
   };
 
   const deleteMsg = async (msg) => {
-    if (msg.uid !== user.uid) return alert("본인 메시지만 삭제할 수 있어요");
+   if (msg.name !== user.displayName) return alert("본인 메시지만 삭제할 수 있어요");
     if (window.confirm("메시지를 삭제하시겠습니까?")) {
       await deleteDoc(doc(db,"messages",channel,"chats",msg.id));
     }
