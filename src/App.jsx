@@ -477,14 +477,20 @@ function SalesTab({ projects, staffList, user }) {
   );
 }
 
-function StaffTab({ staffList, tasks }) {
+function StaffTab({ staffList }) {
   const [showForm, setShowForm] = useState(false);
   const [showMgr, setShowMgr] = useState(false);
   const [viewItem, setViewItem] = useState(null);
   const [editItem, setEditItem] = useState(null);
+  const [tasks, setTasks] = useState([]);
   const [form, setForm] = useState({ assignee:"", title:"", desc:"", start:"", end:"", status:"진행", files:[] });
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef();
+
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db,"tasks"), snap => setTasks(snap.docs.map(d => ({ id:d.id, ...d.data() }))));
+    return unsub;
+  }, []);
 
   const openAdd = () => { setEditItem(null); setForm({ assignee:staffList[0]?.name||"", title:"", desc:"", start:"", end:"", status:"진행", files:[] }); setShowForm(true); };
   const openEditFromView = () => { setEditItem(viewItem); setForm({ assignee:viewItem.assignee||"", title:viewItem.title||"", desc:viewItem.desc||"", start:viewItem.start||"", end:viewItem.end||"", status:viewItem.status||"진행", files:viewItem.files||[] }); setViewItem(null); setShowForm(true); };
@@ -725,72 +731,6 @@ function ChatTab({ user, channel }) {
   );
 }
 
-function StaffDetailModal({ name, projects, tasks, events, onClose }) {
-  const myProjects = projects.filter(p => p.assignee === name);
-  const myTasks = tasks.filter(t => t.assignee === name);
-  const myEvents = events
-    .filter(e => (e.staffs && e.staffs.includes(name)) || e.staff === name)
-    .sort((a,b) => (a.date||"").localeCompare(b.date||""));
-  const todayStr = new Date().toISOString().slice(0,10);
-
-  const Section = ({ title, count, children }) => (
-    <div style={{ marginBottom:18 }}>
-      <div style={{ fontSize:13, fontWeight:500, color:"#333", marginBottom:8 }}>{title} <span style={{ color:"#aaa", fontWeight:400 }}>({count})</span></div>
-      {count === 0 ? (
-        <div style={{ fontSize:12, color:"#bbb", padding:"8px 0" }}>등록된 내용이 없어요</div>
-      ) : (
-        <div style={{ display:"flex", flexDirection:"column", gap:6 }}>{children}</div>
-      )}
-    </div>
-  );
-
-  return (
-    <div onClick={onClose} style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.4)", zIndex:500, display:"flex", alignItems:"center", justifyContent:"center", padding:16 }}>
-      <div onClick={e => e.stopPropagation()} style={{ background:"#fff", borderRadius:12, width:"100%", maxWidth:440, maxHeight:"82vh", display:"flex", flexDirection:"column", overflow:"hidden" }}>
-        <div style={{ padding:"16px 18px", borderBottom:"1px solid #eee", display:"flex", justifyContent:"space-between", alignItems:"center", flexShrink:0 }}>
-          <div style={{ fontSize:16, fontWeight:600 }}>{name}님의 현황</div>
-          <span onClick={onClose} style={{ cursor:"pointer", color:"#999", fontSize:20, lineHeight:1 }}>×</span>
-        </div>
-        <div style={{ padding:18, overflowY:"auto" }}>
-          <Section title="영업 프로젝트" count={myProjects.length}>
-            {myProjects.map(p => (
-              <div key={p.id} style={{ background:"#fafafa", border:"1px solid #eee", borderRadius:8, padding:"8px 10px" }}>
-                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:4 }}>
-                  <span style={{ fontSize:13, fontWeight:500 }}>{p.client}</span>
-                  <Badge s={p.status} />
-                </div>
-                <div style={{ fontSize:12, color:"#888" }}>{p.title}</div>
-                <div style={{ marginTop:6, height:4, background:"#eee", borderRadius:2 }}><div style={{ height:"100%", width:(p.progress||0)+"%", background:"#378ADD", borderRadius:2 }} /></div>
-              </div>
-            ))}
-          </Section>
-
-          <Section title="직원업무" count={myTasks.length}>
-            {myTasks.map(t => (
-              <div key={t.id} style={{ background:"#fafafa", border:"1px solid #eee", borderRadius:8, padding:"8px 10px" }}>
-                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-                  <span style={{ fontSize:13, fontWeight:500 }}>{t.title}</span>
-                  <Badge s={t.status} />
-                </div>
-                {(t.start || t.end) && <div style={{ fontSize:11, color:"#999", marginTop:3 }}>📅 {t.start||"-"} → {t.end||"-"}</div>}
-              </div>
-            ))}
-          </Section>
-
-          <Section title="일정관리" count={myEvents.length}>
-            {myEvents.map(e => (
-              <div key={e.id} style={{ display:"flex", alignItems:"center", gap:8, padding:"6px 10px", background: e.date===todayStr ? "#E6F1FB" : "#fafafa", border:"1px solid #eee", borderRadius:8 }}>
-                <span style={{ fontSize:11, color: e.date===todayStr ? "#185FA5" : "#999", fontWeight:500, flexShrink:0 }}>{e.date}{e.date===todayStr?" · 오늘":""}</span>
-                <span style={{ fontSize:13 }}>{e.title}</span>
-              </div>
-            ))}
-          </Section>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export default function App() {
   const [user, setUser] = useState(null);
   const [authChecked, setAuthChecked] = useState(false);
@@ -803,9 +743,6 @@ export default function App() {
   const [projects, setProjects] = useState([]);
   const [deliveries, setDeliveries] = useState([]);
   const [staffList, setStaffList] = useState([]);
-  const [tasks, setTasks] = useState([]);
-  const [allEvents, setAllEvents] = useState([]);
-  const [selectedStaff, setSelectedStaff] = useState(null);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
@@ -891,9 +828,7 @@ export default function App() {
     const u1 = onSnapshot(collection(db,"projects"), snap => setProjects(snap.docs.map(d => ({id:d.id,...d.data()}))));
     const u2 = onSnapshot(collection(db,"deliveries"), snap => setDeliveries(snap.docs.map(d => ({id:d.id,...d.data()}))));
     const u3 = onSnapshot(collection(db,"staff"), snap => setStaffList(snap.docs.map(d => ({id:d.id,...d.data()}))));
-    const u4 = onSnapshot(collection(db,"tasks"), snap => setTasks(snap.docs.map(d => ({id:d.id,...d.data()}))));
-    const u5 = onSnapshot(collection(db,"events"), snap => setAllEvents(snap.docs.map(d => ({id:d.id,...d.data()}))));
-    return () => { u1(); u2(); u3(); u4(); u5(); };
+    return () => { u1(); u2(); u3(); };
   }, []);
   useEffect(() => {
     const onResize = () => setIsMobile(window.innerWidth < 768);
@@ -962,7 +897,7 @@ export default function App() {
         {onlineUsers.map(ou => {
           const evs = getEventsForName(ou.name);
           return (
-            <div key={ou.id} onClick={() => { setSelectedStaff(ou.name); setDrawerOpen(false); }} style={{ margin:"0 6px 6px", padding:"6px 8px", background:"#fff", borderRadius:6, cursor:"pointer" }}>
+            <div key={ou.id} style={{ margin:"0 6px 6px", padding:"6px 8px", background:"#fff", borderRadius:6 }}>
               <div style={{ display:"flex", alignItems:"center", gap:5, marginBottom: evs.length?4:0 }}>
                 <span style={{ width:7, height:7, borderRadius:"50%", background:"#3B6D11", display:"inline-block" }} />
                 <span style={{ fontSize:12, fontWeight:500 }}>{ou.name}</span>
@@ -1077,7 +1012,7 @@ export default function App() {
           )}
 
           {tab==="sales" && <SalesTab projects={projects} staffList={staffList} user={user} />}
-          {tab==="staff" && <StaffTab staffList={staffList} tasks={tasks} />}
+          {tab==="staff" && <StaffTab staffList={staffList} />}
           {tab==="schedule" && <ScheduleTab staffList={staffList} user={user} />}
 
           {tab==="delivery" && (
@@ -1102,16 +1037,6 @@ export default function App() {
           {tab==="chat" && <ChatTab user={user} channel={channel} />}
         </div>
       </div>
-
-      {selectedStaff && (
-        <StaffDetailModal
-          name={selectedStaff}
-          projects={projects}
-          tasks={tasks}
-          events={allEvents}
-          onClose={() => setSelectedStaff(null)}
-        />
-      )}
     </div>
   );
 }
