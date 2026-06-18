@@ -289,21 +289,40 @@ function ScheduleTab({ staffList, user }) {
   );
 }
 
-function SalesTab({ projects, staffList }) {
+function SalesTab({ projects, staffList, user }) {
   const [showForm, setShowForm] = useState(false);
+  const [viewItem, setViewItem] = useState(null);
   const [editItem, setEditItem] = useState(null);
   const [form, setForm] = useState({ client:"", title:"", assignee:"", status:"진행", start:"", end:"", progress:0, note:"" });
   const [filter, setFilter] = useState("전체");
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef();
 
-  const openAdd = () => { setEditItem(null); setForm({ client:"", title:"", assignee:staffList[0]?.name||"", status:"진행", start:"", end:"", progress:0, note:"" }); setShowForm(true); };
-  const openEdit = (p) => { setEditItem(p); setForm({ client:p.client||"", title:p.title||"", assignee:p.assignee||"", status:p.status||"진행", start:p.start||"", end:p.end||"", progress:p.progress||0, note:p.note||"" }); setShowForm(true); };
+  const openAdd = () => { setEditItem(null); setForm({ client:"", title:"", assignee:staffList[0]?.name||"", status:"진행", start:"", end:"", progress:0, note:"", files:[] }); setShowForm(true); };
+  const openEditFromView = () => { setEditItem(viewItem); setForm({ client:viewItem.client||"", title:viewItem.title||"", assignee:viewItem.assignee||"", status:viewItem.status||"진행", start:viewItem.start||"", end:viewItem.end||"", progress:viewItem.progress||0, note:viewItem.note||"", files:viewItem.files||[] }); setViewItem(null); setShowForm(true); };
   const save = async () => {
     if (!form.client) return;
     if (editItem) await updateDoc(doc(db,"projects",editItem.id), { ...form, progress:Number(form.progress) });
     else await addDoc(collection(db,"projects"), { ...form, progress:Number(form.progress), createdAt:serverTimestamp() });
     setShowForm(false);
   };
-  const remove = async (id) => { if (window.confirm("삭제하시겠습니까?")) await deleteDoc(doc(db,"projects",id)); };
+  const remove = async (id) => { if (window.confirm("삭제하시겠습니까?")) { await deleteDoc(doc(db,"projects",id)); setViewItem(null); } };
+
+  const uploadFile = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const storageRef = ref(storage, `project-files/${Date.now()}_${file.name}`);
+      await uploadBytes(storageRef, file);
+      const url = await getDownloadURL(storageRef);
+      setForm(f => ({ ...f, files: [...(f.files||[]), { name:file.name, url }] }));
+    } catch(err) { alert("업로드 실패: " + err.message); }
+    setUploading(false);
+    e.target.value = "";
+  };
+  const removeFile = (idx) => setForm(f => ({ ...f, files: f.files.filter((_,i) => i!==idx) }));
+
   const filtered = filter === "전체" ? projects : projects.filter(p => p.status === filter);
 
   return (
@@ -323,7 +342,7 @@ function SalesTab({ projects, staffList }) {
         {filtered.map(p => {
           const barColor = p.status==="완료"?"#1D9E75":p.status==="지연"?"#E24B4A":"#378ADD";
           return (
-            <div key={p.id} style={{ background:"#fff", border:"1px solid #e8e8e8", borderRadius:12, padding:16 }}>
+            <div key={p.id} onClick={() => setViewItem(p)} style={{ background:"#fff", border:"1px solid #e8e8e8", borderRadius:12, padding:16, cursor:"pointer" }}>
               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:10 }}>
                 <div><div style={{ fontWeight:500, fontSize:15 }}>{p.client}</div><div style={{ fontSize:12, color:"#888", marginTop:2 }}>{p.title}</div></div>
                 <Badge s={p.status} />
@@ -336,13 +355,10 @@ function SalesTab({ projects, staffList }) {
                   </div>
                 ))}
               </div>
-              {p.note && <div style={{ fontSize:12, color:"#854F0B", background:"#FFFBE6", borderRadius:6, padding:"6px 10px", marginBottom:10 }}>📝 {p.note}</div>}
-              <div style={{ height:5, background:"#eee", borderRadius:3, marginBottom:12 }}>
+              {p.note && <div style={{ fontSize:12, color:"#854F0B", background:"#FFFBE6", borderRadius:6, padding:"6px 10px", marginBottom:10, whiteSpace:"pre-wrap", overflow:"hidden", textOverflow:"ellipsis", display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical" }}>📝 {p.note}</div>}
+              {p.files && p.files.length > 0 && <div style={{ fontSize:11, color:"#185FA5", marginBottom:10 }}>📎 첨부파일 {p.files.length}개</div>}
+              <div style={{ height:5, background:"#eee", borderRadius:3 }}>
                 <div style={{ height:"100%", width:(p.progress||0)+"%", background:barColor, borderRadius:3, transition:"width 0.3s" }} />
-              </div>
-              <div style={{ display:"flex", gap:6, justifyContent:"flex-end" }}>
-                <button onClick={() => openEdit(p)} style={{ padding:"5px 12px", borderRadius:6, border:"1px solid #ddd", background:"#fff", cursor:"pointer", fontSize:12 }}>수정</button>
-                <button onClick={() => remove(p.id)} style={{ padding:"5px 12px", borderRadius:6, border:"1px solid #fcc", background:"#fff", color:"#E24B4A", cursor:"pointer", fontSize:12 }}>삭제</button>
               </div>
             </div>
           );
@@ -350,11 +366,54 @@ function SalesTab({ projects, staffList }) {
         {filtered.length === 0 && <div style={{ color:"#aaa", padding:20 }}>해당 상태의 프로젝트가 없어요</div>}
       </div>
 
+      {viewItem && (
+        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.35)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:100 }}>
+          <div style={{ background:"#fff", borderRadius:14, padding:24, width:380, maxHeight:"85vh", overflowY:"auto" }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:14 }}>
+              <div><div style={{ fontWeight:500, fontSize:17 }}>{viewItem.client}</div><div style={{ fontSize:13, color:"#888", marginTop:3 }}>{viewItem.title}</div></div>
+              <Badge s={viewItem.status} />
+            </div>
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:14 }}>
+              {[["담당자",viewItem.assignee||"-"],["진행률",(viewItem.progress||0)+"%"],["시작일",viewItem.start||"-"],["완료예정",viewItem.end||"-"]].map(([l,v]) => (
+                <div key={l} style={{ background:"#f8f8f8", borderRadius:6, padding:"8px 10px" }}>
+                  <div style={{ fontSize:11, color:"#aaa", marginBottom:2 }}>{l}</div>
+                  <div style={{ fontSize:14, fontWeight:500 }}>{v}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{ height:6, background:"#eee", borderRadius:3, marginBottom:16 }}>
+              <div style={{ height:"100%", width:(viewItem.progress||0)+"%", background:"#378ADD", borderRadius:3 }} />
+            </div>
+            <div style={{ fontSize:12, color:"#888", marginBottom:6 }}>메모</div>
+            <div style={{ fontSize:13, color:"#555", lineHeight:1.7, background:"#f8f8f8", borderRadius:8, padding:"10px 12px", marginBottom:16, whiteSpace:"pre-wrap", minHeight:40 }}>
+              {viewItem.note || <span style={{ color:"#bbb" }}>메모 없음</span>}
+            </div>
+            {viewItem.files && viewItem.files.length > 0 && (
+              <div style={{ marginBottom:16 }}>
+                <div style={{ fontSize:12, color:"#888", marginBottom:6 }}>첨부파일</div>
+                <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+                  {viewItem.files.map((f,idx) => (
+                    <a key={idx} href={f.url} target="_blank" rel="noreferrer" style={{ display:"flex", alignItems:"center", gap:6, background:"#f5f5f5", padding:"8px 12px", borderRadius:8, fontSize:13, color:"#185FA5", textDecoration:"none" }}>📎 {f.name}</a>
+                  ))}
+                </div>
+              </div>
+            )}
+            <div style={{ display:"flex", justifyContent:"space-between" }}>
+              <button onClick={() => remove(viewItem.id)} style={{ padding:"8px 16px", borderRadius:6, border:"1px solid #fcc", background:"#fff", color:"#E24B4A", cursor:"pointer" }}>삭제</button>
+              <div style={{ display:"flex", gap:8 }}>
+                <button onClick={() => setViewItem(null)} style={{ padding:"8px 16px", borderRadius:6, border:"1px solid #ddd", background:"#fff", cursor:"pointer" }}>닫기</button>
+                <button onClick={openEditFromView} style={{ padding:"8px 16px", borderRadius:6, border:"none", background:"#185FA5", color:"#fff", cursor:"pointer" }}>수정</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showForm && (
         <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.35)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:100 }}>
-          <div style={{ background:"#fff", borderRadius:14, padding:24, width:360, maxHeight:"90vh", overflowY:"auto" }}>
+          <div style={{ background:"#fff", borderRadius:14, padding:24, width:380, maxHeight:"90vh", overflowY:"auto" }}>
             <h3 style={{ marginBottom:16, fontWeight:500 }}>{editItem ? "프로젝트 수정" : "프로젝트 추가"}</h3>
-            {[["client","거래처"],["title","프로젝트 제목"],["note","메모 (선택)"]].map(([k,label]) => (
+            {[["client","거래처"],["title","프로젝트 제목"]].map(([k,label]) => (
               <div key={k} style={{ marginBottom:10 }}>
                 <div style={{ fontSize:12, color:"#888", marginBottom:3 }}>{label}</div>
                 <input value={form[k]} onChange={e => setForm({...form,[k]:e.target.value})} style={{ width:"100%", padding:"8px 10px", borderRadius:6, border:"1px solid #ddd", fontSize:13 }} />
@@ -385,9 +444,30 @@ function SalesTab({ projects, staffList }) {
               <div style={{ fontSize:12, color:"#888", marginBottom:3 }}>진행률 {form.progress}%</div>
               <input type="range" min="0" max="100" step="5" value={form.progress} onChange={e => setForm({...form,progress:e.target.value})} style={{ width:"100%" }} />
             </div>
+            <div style={{ marginBottom:16 }}>
+              <div style={{ fontSize:12, color:"#888", marginBottom:3 }}>메모</div>
+              <textarea value={form.note} onChange={e => setForm({...form,note:e.target.value})} placeholder="상세 내용을 자유롭게 입력하세요" style={{ width:"100%", height:140, padding:"10px", borderRadius:6, border:"1px solid #ddd", fontSize:13, resize:"vertical", lineHeight:1.6 }} />
+            </div>
+            <div style={{ marginBottom:16 }}>
+              <div style={{ fontSize:12, color:"#888", marginBottom:6 }}>첨부파일</div>
+              <input ref={fileRef} type="file" style={{ display:"none" }} onChange={uploadFile} />
+              <button onClick={() => fileRef.current.click()} disabled={uploading} style={{ padding:"7px 14px", borderRadius:6, border:"1px solid #ddd", background:"#fff", cursor:"pointer", fontSize:12, marginBottom:8 }}>
+                📎 {uploading ? "업로드 중..." : "파일 선택"}
+              </button>
+              {form.files && form.files.length > 0 && (
+                <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+                  {form.files.map((f,idx) => (
+                    <div key={idx} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", background:"#f5f5f5", padding:"6px 10px", borderRadius:6, fontSize:12 }}>
+                      <span style={{ overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>📎 {f.name}</span>
+                      <button onClick={() => removeFile(idx)} style={{ background:"none", border:"none", color:"#E24B4A", cursor:"pointer", fontSize:12, flexShrink:0, marginLeft:6 }}>삭제</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
             <div style={{ display:"flex", gap:8, justifyContent:"flex-end" }}>
               <button onClick={() => setShowForm(false)} style={{ padding:"8px 16px", borderRadius:6, border:"1px solid #ddd", background:"#fff", cursor:"pointer" }}>취소</button>
-              <button onClick={save} style={{ padding:"8px 16px", borderRadius:6, border:"none", background:"#185FA5", color:"#fff", cursor:"pointer" }}>저장</button>
+              <button onClick={save} disabled={uploading} style={{ padding:"8px 16px", borderRadius:6, border:"none", background:"#185FA5", color:"#fff", cursor:"pointer" }}>저장</button>
             </div>
           </div>
         </div>
@@ -663,7 +743,7 @@ export default function App() {
             </div>
           )}
 
-          {tab==="sales" && <SalesTab projects={projects} staffList={staffList} />}
+          {tab==="sales" && <SalesTab projects={projects} staffList={staffList} user={user} />}
           {tab==="staff" && <StaffTab staffList={staffList} />}
           {tab==="schedule" && <ScheduleTab staffList={staffList} user={user} />}
 
