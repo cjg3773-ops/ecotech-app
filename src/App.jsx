@@ -180,7 +180,7 @@ function ScheduleTab({ staffList, user }) {
         ))}
       </div>
 
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:1, background:"#e8e8e8", borderRadius:8, overflow:"hidden", border:"1px solid #e8e8e8", tableLayout:"fixed" }}>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:1, background:"#e8e8e8", borderRadius:8, overflow:"hidden", border:"1px solid #e8e8e8" }}>
         {["일","월","화","수","목","금","토"].map(d => (
           <div key={d} style={{ background:"#f7f7f7", textAlign:"center", fontSize:11, color:"#888", padding:"6px 0" }}>{d}</div>
         ))}
@@ -765,11 +765,11 @@ export default function App() {
   );
 
   const navItems = [
-    ["dashboard","전체현황","chart-bar"],
-    ["sales","영업 프로젝트","briefcase"],
-    ["staff","직원업무","users"],
-    ["schedule","일정관리","calendar"],
-    ["delivery","납품·물류","truck"],
+    ["dashboard","전체현황"],
+    ["sales","영업 프로젝트"],
+    ["staff","직원업무"],
+    ["schedule","일정관리"],
+    ["delivery","납품·물류"],
   ];
   const channels = ["전체공지","영업팀","물류팀"];
 
@@ -819,11 +819,11 @@ export default function App() {
         <div style={{ width:190, background:"#f7f7f7", borderRight:"1px solid #e8e8e8", display:"flex", flexDirection:"column", padding:"12px 0", flexShrink:0 }}>
           <div style={{ padding:"0 14px 12px", fontWeight:500, fontSize:15 }}>에코테크</div>
           {navItems.map(([t,label]) => (
-            <div key={t} onClick={() => setTab(t)} style={{ padding:"7px 14px", cursor:"pointer", background:tab===t?"#ebebeb":"transparent", borderRadius:6, margin:"0 6px" }}>{label}</div>
+            <div key={t} onClick={() => goTab(t)} style={{ padding:"7px 14px", cursor:"pointer", background:tab===t?"#ebebeb":"transparent", borderRadius:6, margin:"0 6px" }}>{label}</div>
           ))}
           <div style={{ padding:"10px 14px 4px", fontSize:11, color:"#aaa", marginTop:6 }}>메신저</div>
           {channels.map(ch => (
-            <div key={ch} onClick={() => { setTab("chat"); setChannel(ch); }} style={{ padding:"7px 14px", cursor:"pointer", background:tab==="chat"&&channel===ch?"#ebebeb":"transparent", borderRadius:6, margin:"0 6px" }}># {ch}</div>
+            <div key={ch} onClick={() => goChat(ch)} style={{ padding:"7px 14px", cursor:"pointer", background:tab==="chat"&&channel===ch?"#ebebeb":"transparent", borderRadius:6, margin:"0 6px" }}># {ch}</div>
           ))}
           <div style={{ marginTop:"auto", padding:"12px 14px", fontSize:12, color:"#666" }}>
             <div style={{ fontWeight:500 }}>{user.displayName}</div>
@@ -841,22 +841,27 @@ export default function App() {
           {tab==="dashboard" && (
             <div>
               <div style={{ display:"grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(auto-fit,minmax(130px,1fr))", gap:10, marginBottom:20 }}>
-                {[
-                  ["진행 프로젝트", projects.filter(p=>p.status==="진행").length+"건"],
-                  ["납품 대기", deliveries.filter(d=>d.status!=="납품완료").length+"건"],
-                  ["완료", projects.filter(p=>p.status==="완료").length+"건"],
-                  ["직원", staffList.length+"명"],
-                ].map(([l,v]) => (
-                  <div key={l} style={{ background:"#f5f5f5", borderRadius:8, padding:14 }}>
-                    <div style={{ fontSize:11, color:"#888", marginBottom:4 }}>{l}</div>
-                    <div style={{ fontSize:22, fontWeight:500 }}>{v}</div>
-                  </div>
-                ))}
+                <div onClick={() => goTab("sales")} style={{ background:"#f5f5f5", borderRadius:8, padding:14, cursor:"pointer" }}>
+                  <div style={{ fontSize:11, color:"#888", marginBottom:4 }}>영업 프로젝트</div>
+                  <div style={{ fontSize:22, fontWeight:500 }}>{projects.filter(p=>p.status==="진행").length}건 진행</div>
+                </div>
+                <div onClick={() => goTab("staff")} style={{ background:"#f5f5f5", borderRadius:8, padding:14, cursor:"pointer" }}>
+                  <div style={{ fontSize:11, color:"#888", marginBottom:4 }}>직원업무</div>
+                  <div style={{ fontSize:22, fontWeight:500 }}>바로가기</div>
+                </div>
+                <div onClick={() => goTab("schedule")} style={{ background:"#f5f5f5", borderRadius:8, padding:14, cursor:"pointer" }}>
+                  <div style={{ fontSize:11, color:"#888", marginBottom:4 }}>일정관리</div>
+                  <div style={{ fontSize:22, fontWeight:500 }}>바로가기</div>
+                </div>
+                <div onClick={() => goTab("staff")} style={{ background:"#f5f5f5", borderRadius:8, padding:14, cursor:"pointer" }}>
+                  <div style={{ fontSize:11, color:"#888", marginBottom:4 }}>직원</div>
+                  <div style={{ fontSize:22, fontWeight:500 }}>{staffList.length}명</div>
+                </div>
               </div>
               <div style={{ fontWeight:500, marginBottom:10 }}>최근 프로젝트</div>
               <div style={{ display:"grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit,minmax(220px,1fr))", gap:10 }}>
                 {projects.slice(0,4).map(p => (
-                  <div key={p.id} style={{ background:"#fff", border:"1px solid #e8e8e8", borderRadius:10, padding:14 }}>
+                  <div key={p.id} onClick={() => goTab("sales")} style={{ background:"#fff", border:"1px solid #e8e8e8", borderRadius:10, padding:14, cursor:"pointer" }}>
                     <div style={{ display:"flex", justifyContent:"space-between", marginBottom:6 }}><span style={{ fontWeight:500 }}>{p.client}</span><Badge s={p.status} /></div>
                     <div style={{ color:"#888", fontSize:12 }}>{p.title}</div>
                     <div style={{ marginTop:8, height:4, background:"#eee", borderRadius:2 }}><div style={{ height:"100%", width:(p.progress||0)+"%", background:"#378ADD", borderRadius:2 }} /></div>
