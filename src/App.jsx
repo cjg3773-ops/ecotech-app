@@ -296,7 +296,6 @@ function SalesTab({ projects, staffList, user }) {
   const [editItem, setEditItem] = useState(null);
   const [form, setForm] = useState({ client:"", title:"", assignee:"", status:"진행", start:"", end:"", progress:0, note:"", files:[] });
   const [filter, setFilter] = useState("전체");
-  const [staffFilter, setStaffFilter] = useState("전체");
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef();
 
@@ -337,21 +336,11 @@ function SalesTab({ projects, staffList, user }) {
             </button>
           ))}
         </div>
-       <button onClick={openAdd} style={{ padding:"7px 16px", borderRadius:6, border:"none", background:"#185FA5", color:"#fff", cursor:"pointer", fontSize:13 }}>+ 프로젝트 추가</button>
-      </div>
-
-      <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:14 }}>
-        <button onClick={() => setStaffFilter("전체")} style={{ padding:"4px 12px", borderRadius:20, border:"1px solid #ddd", cursor:"pointer", fontSize:12, background: staffFilter==="전체" ? "#333" : "#fff", color: staffFilter==="전체" ? "#fff" : "#555" }}>전체 직원</button>
-        {staffList.map((s,i) => (
-          <button key={s.id} onClick={() => setStaffFilter(s.name)} style={{ display:"flex", alignItems:"center", gap:5, padding:"4px 12px", borderRadius:20, cursor:"pointer", fontSize:12, border: staffFilter===s.name ? `1px solid ${AV_FG[i%AV_FG.length]}` : "1px solid #ddd", background: staffFilter===s.name ? AV_BG[i%AV_BG.length] : "#fff", color: staffFilter===s.name ? AV_FG[i%AV_FG.length] : "#888" }}>
-            <span style={{ width:14, height:14, borderRadius:"50%", background:AV_FG[i%AV_FG.length], color:"#fff", display:"flex", alignItems:"center", justifyContent:"center", fontSize:8 }}>{s.name[0]}</span>
-            {s.name}
-          </button>
-        ))}
+        <button onClick={openAdd} style={{ padding:"7px 16px", borderRadius:6, border:"none", background:"#185FA5", color:"#fff", cursor:"pointer", fontSize:13 }}>+ 프로젝트 추가</button>
       </div>
 
       <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(260px,1fr))", gap:12 }}>
-        {filtered.filter(p => staffFilter==="전체" || p.assignee===staffFilter).map(p => {
+        {filtered.map(p => {
           const barColor = p.status==="완료"?"#1D9E75":p.status==="지연"?"#E24B4A":"#378ADD";
           return (
             <div key={p.id} onClick={() => setViewItem(p)} style={{ background:"#fff", border:"1px solid #e8e8e8", borderRadius:12, padding:16, cursor:"pointer" }}>
@@ -496,7 +485,6 @@ function StaffTab({ staffList }) {
   const [tasks, setTasks] = useState([]);
   const [form, setForm] = useState({ assignee:"", title:"", desc:"", start:"", end:"", status:"진행", files:[] });
   const [uploading, setUploading] = useState(false);
-  const [staffFilter, setStaffFilter] = useState("전체");
   const fileRef = useRef();
 
   useEffect(() => {
@@ -536,21 +524,16 @@ function StaffTab({ staffList }) {
         <button onClick={openAdd} style={{ padding:"7px 16px", borderRadius:6, border:"none", background:"#185FA5", color:"#fff", cursor:"pointer", fontSize:13 }}>+ 업무 추가</button>
       </div>
 
-      
-<div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom:16 }}>
-        <button onClick={() => setStaffFilter("전체")} style={{ padding:"5px 14px", borderRadius:20, border:"1px solid #ddd", cursor:"pointer", background: staffFilter==="전체" ? "#333" : "#fff", color: staffFilter==="전체" ? "#fff" : "#555", fontSize:12, fontWeight:500 }}>
-          전체 ({tasks.length}건)
-        </button>
+      <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom:16 }}>
         {staffList.map((s,i) => (
-          <button key={s.id} onClick={() => setStaffFilter(s.name)} style={{ display:"flex", alignItems:"center", gap:6, padding:"5px 14px", borderRadius:20, cursor:"pointer", fontSize:12, fontWeight:500, border: staffFilter===s.name ? `2px solid ${AV_FG[i%AV_FG.length]}` : "1px solid transparent", background:AV_BG[i%AV_BG.length], color:AV_FG[i%AV_FG.length] }}>
+          <div key={s.id} style={{ display:"flex", alignItems:"center", gap:6, padding:"5px 14px", borderRadius:20, background:AV_BG[i%AV_BG.length], color:AV_FG[i%AV_FG.length], fontSize:12, fontWeight:500 }}>
             <span>{s.name}</span><span style={{ fontSize:11, opacity:0.8 }}>({tasks.filter(t=>t.assignee===s.name).length}건)</span>
-          </button>
+          </div>
         ))}
       </div>
-    
 
       <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
-        {tasks.filter(t => staffFilter==="전체" || t.assignee===staffFilter).map(t => (
+        {tasks.map(t => (
           <div key={t.id} onClick={() => setViewItem(t)} style={{ background:"#fff", border:"1px solid #e8e8e8", borderRadius:10, padding:14, cursor:"pointer" }}>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:8 }}>
               <div><div style={{ fontWeight:500, fontSize:14 }}>{t.title}</div><div style={{ fontSize:12, color:"#888", marginTop:2 }}>담당: {t.assignee}</div></div>
@@ -753,6 +736,8 @@ export default function App() {
   const [authChecked, setAuthChecked] = useState(false);
   const [approvalStatus, setApprovalStatus] = useState(null);
   const [pendingUsers, setPendingUsers] = useState([]);
+  const [onlineUsers, setOnlineUsers] = useState([]);
+  const [todayEvents, setTodayEvents] = useState([]);
   const [tab, setTab] = useState("dashboard");
   const [channel, setChannel] = useState("전체공지");
   const [projects, setProjects] = useState([]);
@@ -798,6 +783,46 @@ export default function App() {
   const rejectUser = async (pu) => {
     if (window.confirm(`${pu.name}님의 요청을 거부하시겠습니까?`)) await deleteDoc(doc(db,"pendingUsers",pu.id));
   };
+
+  useEffect(() => {
+    if (!user || approvalStatus !== "approved") return;
+    const presenceRef = doc(db, "presence", user.uid);
+    const setOnline = () => setDoc(presenceRef, { name:user.displayName, lastActive:serverTimestamp() });
+    setOnline();
+    const interval = setInterval(setOnline, 30000);
+    const handleBeforeUnload = () => { deleteDoc(presenceRef); };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      deleteDoc(presenceRef);
+    };
+  }, [user, approvalStatus]);
+
+  useEffect(() => {
+    if (!user || approvalStatus !== "approved") return;
+    const unsub = onSnapshot(collection(db,"presence"), snap => {
+      const now = Date.now();
+      const list = snap.docs.map(d => ({ id:d.id, ...d.data() })).filter(p => {
+        const t = p.lastActive?.toMillis ? p.lastActive.toMillis() : 0;
+        return now - t < 90000;
+      });
+      setOnlineUsers(list);
+    });
+    return unsub;
+  }, [user, approvalStatus]);
+
+  useEffect(() => {
+    if (!user || approvalStatus !== "approved") return;
+    const todayStr = new Date().toISOString().slice(0,10);
+    const unsub = onSnapshot(collection(db,"events"), snap => {
+      const evs = snap.docs.map(d => ({ id:d.id, ...d.data() })).filter(e => e.date === todayStr);
+      setTodayEvents(evs);
+    });
+    return unsub;
+  }, [user, approvalStatus]);
+
+  const getEventsForName = (name) => todayEvents.filter(e => (e.staffs && e.staffs.includes(name)) || e.staff === name);
 
   useEffect(() => {
     const u1 = onSnapshot(collection(db,"projects"), snap => setProjects(snap.docs.map(d => ({id:d.id,...d.data()}))));
@@ -848,6 +873,46 @@ export default function App() {
 
   const tabLabel = tab==="dashboard"?"전체현황":tab==="sales"?"영업 프로젝트":tab==="staff"?"직원업무":tab==="schedule"?"일정관리":tab==="delivery"?"납품·물류":"# "+channel;
 
+  const PendingList = () => (
+    user.email === ADMIN_EMAIL && pendingUsers.length > 0 && (
+      <div style={{ marginTop:10 }}>
+        <div style={{ padding:"0 14px 4px", fontSize:11, color:"#E24B4A", fontWeight:500 }}>승인 대기 ({pendingUsers.length})</div>
+        {pendingUsers.map(pu => (
+          <div key={pu.id} style={{ margin:"0 6px 6px", padding:"6px 8px", background:"#fff", borderRadius:6, border:"1px solid #fcc" }}>
+            <div style={{ fontSize:12, fontWeight:500, marginBottom:4 }}>{pu.name}</div>
+            <div style={{ display:"flex", gap:4 }}>
+              <button onClick={() => approveUser(pu)} style={{ flex:1, padding:"3px 0", borderRadius:4, border:"none", background:"#185FA5", color:"#fff", fontSize:11, cursor:"pointer" }}>승인</button>
+              <button onClick={() => rejectUser(pu)} style={{ flex:1, padding:"3px 0", borderRadius:4, border:"1px solid #ddd", background:"#fff", color:"#888", fontSize:11, cursor:"pointer" }}>거부</button>
+            </div>
+          </div>
+        ))}
+      </div>
+    )
+  );
+
+  const OnlineList = () => (
+    <div style={{ marginTop:10, paddingTop:10, borderTop:"1px solid #e8e8e8" }}>
+      <div style={{ padding:"0 14px 6px", fontSize:11, color:"#aaa" }}>접속 중 ({onlineUsers.length})</div>
+      <div style={{ maxHeight:160, overflowY:"auto" }}>
+        {onlineUsers.map(ou => {
+          const evs = getEventsForName(ou.name);
+          return (
+            <div key={ou.id} style={{ margin:"0 6px 6px", padding:"6px 8px", background:"#fff", borderRadius:6 }}>
+              <div style={{ display:"flex", alignItems:"center", gap:5, marginBottom: evs.length?4:0 }}>
+                <span style={{ width:7, height:7, borderRadius:"50%", background:"#3B6D11", display:"inline-block" }} />
+                <span style={{ fontSize:12, fontWeight:500 }}>{ou.name}</span>
+              </div>
+              {evs.map(e => (
+                <div key={e.id} style={{ fontSize:11, color:"#888", paddingLeft:12 }}>· {e.title}</div>
+              ))}
+            </div>
+          );
+        })}
+        {onlineUsers.length === 0 && <div style={{ padding:"0 14px", fontSize:11, color:"#bbb" }}>접속자 없음</div>}
+      </div>
+    </div>
+  );
+
   return (
     <div style={{ display:"flex", height:"100vh", fontFamily:"sans-serif", fontSize:14, overflow:"hidden", position:"relative" }}>
 
@@ -869,7 +934,7 @@ export default function App() {
           <div style={{
             position:"fixed", top:0, left:0, bottom:0, width:200, background:"#f7f7f7", zIndex:301,
             transform: drawerOpen ? "translateX(0)" : "translateX(-100%)", transition:"transform 0.25s ease",
-            display:"flex", flexDirection:"column", padding:"12px 0", boxShadow:"2px 0 10px rgba(0,0,0,0.15)"
+            display:"flex", flexDirection:"column", padding:"12px 0", boxShadow:"2px 0 10px rgba(0,0,0,0.15)", overflowY:"auto"
           }}>
             <div style={{ padding:"0 14px 12px", fontWeight:500, fontSize:15, borderBottom:"1px solid #e8e8e8", marginBottom:8 }}>에코테크</div>
             {navItems.map(([t,label]) => (
@@ -879,20 +944,8 @@ export default function App() {
             {channels.map(ch => (
               <div key={ch} onClick={() => goChat(ch)} style={{ padding:"9px 14px", cursor:"pointer", background:tab==="chat"&&channel===ch?"#ebebeb":"transparent", borderRadius:6, margin:"0 6px" }}># {ch}</div>
             ))}
-            {user.email === ADMIN_EMAIL && pendingUsers.length > 0 && (
-              <div style={{ marginTop:10, overflowY:"auto" }}>
-                <div style={{ padding:"0 14px 4px", fontSize:11, color:"#E24B4A", fontWeight:500 }}>승인 대기 ({pendingUsers.length})</div>
-                {pendingUsers.map(pu => (
-                  <div key={pu.id} style={{ margin:"0 6px 6px", padding:"6px 8px", background:"#fff", borderRadius:6, border:"1px solid #fcc" }}>
-                    <div style={{ fontSize:12, fontWeight:500, marginBottom:4 }}>{pu.name}</div>
-                    <div style={{ display:"flex", gap:4 }}>
-                      <button onClick={() => approveUser(pu)} style={{ flex:1, padding:"3px 0", borderRadius:4, border:"none", background:"#185FA5", color:"#fff", fontSize:11, cursor:"pointer" }}>승인</button>
-                      <button onClick={() => rejectUser(pu)} style={{ flex:1, padding:"3px 0", borderRadius:4, border:"1px solid #ddd", background:"#fff", color:"#888", fontSize:11, cursor:"pointer" }}>거부</button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+            <PendingList />
+            <OnlineList />
             <div style={{ marginTop:"auto", padding:"12px 14px", fontSize:12, color:"#666" }}>
               <div style={{ fontWeight:500 }}>{user.displayName}</div>
               <div onClick={logout} style={{ cursor:"pointer", color:"#999", marginTop:3 }}>로그아웃</div>
@@ -909,26 +962,15 @@ export default function App() {
           {channels.map(ch => (
             <div key={ch} onClick={() => goChat(ch)} style={{ padding:"7px 14px", cursor:"pointer", background:tab==="chat"&&channel===ch?"#ebebeb":"transparent", borderRadius:6, margin:"0 6px" }}># {ch}</div>
           ))}
-          {user.email === ADMIN_EMAIL && pendingUsers.length > 0 && (
-            <div style={{ marginTop:10 }}>
-              <div style={{ padding:"0 14px 4px", fontSize:11, color:"#E24B4A", fontWeight:500 }}>승인 대기 ({pendingUsers.length})</div>
-              {pendingUsers.map(pu => (
-                <div key={pu.id} style={{ margin:"0 6px 6px", padding:"6px 8px", background:"#fff", borderRadius:6, border:"1px solid #fcc" }}>
-                  <div style={{ fontSize:12, fontWeight:500, marginBottom:4 }}>{pu.name}</div>
-                  <div style={{ display:"flex", gap:4 }}>
-                    <button onClick={() => approveUser(pu)} style={{ flex:1, padding:"3px 0", borderRadius:4, border:"none", background:"#185FA5", color:"#fff", fontSize:11, cursor:"pointer" }}>승인</button>
-                    <button onClick={() => rejectUser(pu)} style={{ flex:1, padding:"3px 0", borderRadius:4, border:"1px solid #ddd", background:"#fff", color:"#888", fontSize:11, cursor:"pointer" }}>거부</button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+          <PendingList />
+          <OnlineList />
           <div style={{ marginTop:"auto", padding:"12px 14px", fontSize:12, color:"#666" }}>
             <div style={{ fontWeight:500 }}>{user.displayName}</div>
             <div onClick={logout} style={{ cursor:"pointer", color:"#999", marginTop:3 }}>로그아웃</div>
           </div>
         </div>
       )}
+
       <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden", minWidth:0 }}>
         <div style={{ padding:"12px 16px", borderBottom:"1px solid #e8e8e8", fontWeight:500, fontSize:15, flexShrink:0 }}>
           {tabLabel}
