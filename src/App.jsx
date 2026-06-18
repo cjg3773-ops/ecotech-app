@@ -3,10 +3,11 @@ import { auth, provider, db, storage } from "./firebase";
 import { signInWithPopup, signOut, onAuthStateChanged } from "firebase/auth";
 import {
   collection, addDoc, onSnapshot, serverTimestamp,
-  query, orderBy, doc, updateDoc, deleteDoc
+  query, orderBy, doc, updateDoc, deleteDoc, setDoc, getDoc
 } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
+const ADMIN_EMAIL = "cjg3773@gmail.com";
 const AV_BG = ["#E6F1FB","#E1F5EE","#FAECE7","#EEEDFE","#FBEAF0","#FAEEDA","#EAF3DE","#F1EFE8"];
 const AV_FG = ["#185FA5","#0F6E56","#993C1D","#534AB7","#993556","#854F0B","#3B6D11","#5F5E5A"];
 const STATUS_LIST = ["진행","완료","대기","지연"];
@@ -546,6 +547,7 @@ function StaffTab({ staffList }) {
           </button>
         ))}
       </div>
+    
 
       <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
         {tasks.filter(t => staffFilter==="전체" || t.assignee===staffFilter).map(t => (
@@ -748,6 +750,9 @@ function ChatTab({ user, channel }) {
 
 export default function App() {
   const [user, setUser] = useState(null);
+  const [authChecked, setAuthChecked] = useState(false);
+  const [approvalStatus, setApprovalStatus] = useState(null);
+  const [pendingUsers, setPendingUsers] = useState([]);
   const [tab, setTab] = useState("dashboard");
   const [channel, setChannel] = useState("전체공지");
   const [projects, setProjects] = useState([]);
@@ -756,7 +761,44 @@ export default function App() {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
-  useEffect(() => { const u = onAuthStateChanged(auth, setUser); return u; }, []);
+  useEffect(() => {
+    const u = onAuthStateChanged(auth, async (u) => {
+      setUser(u);
+      setAuthChecked(true);
+      if (u) {
+        const isAdmin = u.email === ADMIN_EMAIL;
+        const userRef = doc(db, "approvedUsers", u.uid);
+        if (isAdmin) {
+          await setDoc(userRef, { email:u.email, name:u.displayName, approvedAt:serverTimestamp() }, { merge:true });
+          setApprovalStatus("approved");
+        } else {
+          const snap = await getDoc(userRef);
+          if (snap.exists()) {
+            setApprovalStatus("approved");
+          } else {
+            await setDoc(doc(db, "pendingUsers", u.uid), { email:u.email, name:u.displayName, requestedAt:serverTimestamp() }, { merge:true });
+            setApprovalStatus("pending");
+          }
+        }
+      }
+    });
+    return u;
+  }, []);
+
+  useEffect(() => {
+    if (!user || user.email !== ADMIN_EMAIL) return;
+    const unsub = onSnapshot(collection(db,"pendingUsers"), snap => setPendingUsers(snap.docs.map(d => ({id:d.id,...d.data()}))));
+    return unsub;
+  }, [user]);
+
+  const approveUser = async (pu) => {
+    await setDoc(doc(db,"approvedUsers",pu.id), { email:pu.email, name:pu.name, approvedAt:serverTimestamp() });
+    await deleteDoc(doc(db,"pendingUsers",pu.id));
+  };
+  const rejectUser = async (pu) => {
+    if (window.confirm(`${pu.name}님의 요청을 거부하시겠습니까?`)) await deleteDoc(doc(db,"pendingUsers",pu.id));
+  };
+
   useEffect(() => {
     const u1 = onSnapshot(collection(db,"projects"), snap => setProjects(snap.docs.map(d => ({id:d.id,...d.data()}))));
     const u2 = onSnapshot(collection(db,"deliveries"), snap => setDeliveries(snap.docs.map(d => ({id:d.id,...d.data()}))));
@@ -770,7 +812,9 @@ export default function App() {
   }, []);
 
   const login = () => signInWithPopup(auth, provider);
-  const logout = () => signOut(auth);
+  const logout = () => { setApprovalStatus(null); signOut(auth); };
+
+  if (!authChecked) return null;
 
   if (!user) return (
     <div style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", height:"100vh", gap:16, padding:20, textAlign:"center" }}>
@@ -779,6 +823,16 @@ export default function App() {
       <button onClick={login} style={{ padding:"10px 24px", fontSize:15, cursor:"pointer", borderRadius:8, border:"1px solid #ddd", background:"#fff" }}>Google로 로그인</button>
     </div>
   );
+
+  if (approvalStatus === "pending") return (
+    <div style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", height:"100vh", gap:16, padding:20, textAlign:"center" }}>
+      <h1 style={{ fontSize:22, fontWeight:500 }}>승인 대기 중입니다</h1>
+      <p style={{ color:"#888", maxWidth:320, lineHeight:1.6 }}>관리자(대표)의 승인이 필요해요. 승인되면 자동으로 접속할 수 있습니다.</p>
+      <div onClick={logout} style={{ cursor:"pointer", color:"#999", fontSize:13, marginTop:6 }}>로그아웃</div>
+    </div>
+  );
+
+  if (approvalStatus !== "approved") return null;
 
   const navItems = [
     ["dashboard","전체현황"],
@@ -825,6 +879,20 @@ export default function App() {
             {channels.map(ch => (
               <div key={ch} onClick={() => goChat(ch)} style={{ padding:"9px 14px", cursor:"pointer", background:tab==="chat"&&channel===ch?"#ebebeb":"transparent", borderRadius:6, margin:"0 6px" }}># {ch}</div>
             ))}
+            {user.email === ADMIN_EMAIL && pendingUsers.length > 0 && (
+              <div style={{ marginTop:10, overflowY:"auto" }}>
+                <div style={{ padding:"0 14px 4px", fontSize:11, color:"#E24B4A", fontWeight:500 }}>승인 대기 ({pendingUsers.length})</div>
+                {pendingUsers.map(pu => (
+                  <div key={pu.id} style={{ margin:"0 6px 6px", padding:"6px 8px", background:"#fff", borderRadius:6, border:"1px solid #fcc" }}>
+                    <div style={{ fontSize:12, fontWeight:500, marginBottom:4 }}>{pu.name}</div>
+                    <div style={{ display:"flex", gap:4 }}>
+                      <button onClick={() => approveUser(pu)} style={{ flex:1, padding:"3px 0", borderRadius:4, border:"none", background:"#185FA5", color:"#fff", fontSize:11, cursor:"pointer" }}>승인</button>
+                      <button onClick={() => rejectUser(pu)} style={{ flex:1, padding:"3px 0", borderRadius:4, border:"1px solid #ddd", background:"#fff", color:"#888", fontSize:11, cursor:"pointer" }}>거부</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
             <div style={{ marginTop:"auto", padding:"12px 14px", fontSize:12, color:"#666" }}>
               <div style={{ fontWeight:500 }}>{user.displayName}</div>
               <div onClick={logout} style={{ cursor:"pointer", color:"#999", marginTop:3 }}>로그아웃</div>
@@ -832,7 +900,7 @@ export default function App() {
           </div>
         </>
       ) : (
-        <div style={{ width:190, background:"#f7f7f7", borderRight:"1px solid #e8e8e8", display:"flex", flexDirection:"column", padding:"12px 0", flexShrink:0 }}>
+        <div style={{ width:190, background:"#f7f7f7", borderRight:"1px solid #e8e8e8", display:"flex", flexDirection:"column", padding:"12px 0", flexShrink:0, overflowY:"auto" }}>
           <div style={{ padding:"0 14px 12px", fontWeight:500, fontSize:15 }}>에코테크</div>
           {navItems.map(([t,label]) => (
             <div key={t} onClick={() => goTab(t)} style={{ padding:"7px 14px", cursor:"pointer", background:tab===t?"#ebebeb":"transparent", borderRadius:6, margin:"0 6px" }}>{label}</div>
@@ -841,13 +909,26 @@ export default function App() {
           {channels.map(ch => (
             <div key={ch} onClick={() => goChat(ch)} style={{ padding:"7px 14px", cursor:"pointer", background:tab==="chat"&&channel===ch?"#ebebeb":"transparent", borderRadius:6, margin:"0 6px" }}># {ch}</div>
           ))}
+          {user.email === ADMIN_EMAIL && pendingUsers.length > 0 && (
+            <div style={{ marginTop:10 }}>
+              <div style={{ padding:"0 14px 4px", fontSize:11, color:"#E24B4A", fontWeight:500 }}>승인 대기 ({pendingUsers.length})</div>
+              {pendingUsers.map(pu => (
+                <div key={pu.id} style={{ margin:"0 6px 6px", padding:"6px 8px", background:"#fff", borderRadius:6, border:"1px solid #fcc" }}>
+                  <div style={{ fontSize:12, fontWeight:500, marginBottom:4 }}>{pu.name}</div>
+                  <div style={{ display:"flex", gap:4 }}>
+                    <button onClick={() => approveUser(pu)} style={{ flex:1, padding:"3px 0", borderRadius:4, border:"none", background:"#185FA5", color:"#fff", fontSize:11, cursor:"pointer" }}>승인</button>
+                    <button onClick={() => rejectUser(pu)} style={{ flex:1, padding:"3px 0", borderRadius:4, border:"1px solid #ddd", background:"#fff", color:"#888", fontSize:11, cursor:"pointer" }}>거부</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
           <div style={{ marginTop:"auto", padding:"12px 14px", fontSize:12, color:"#666" }}>
             <div style={{ fontWeight:500 }}>{user.displayName}</div>
             <div onClick={logout} style={{ cursor:"pointer", color:"#999", marginTop:3 }}>로그아웃</div>
           </div>
         </div>
       )}
-
       <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden", minWidth:0 }}>
         <div style={{ padding:"12px 16px", borderBottom:"1px solid #e8e8e8", fontWeight:500, fontSize:15, flexShrink:0 }}>
           {tabLabel}
