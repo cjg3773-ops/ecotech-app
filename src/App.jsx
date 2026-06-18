@@ -295,6 +295,7 @@ function SalesTab({ projects, staffList, user }) {
   const [editItem, setEditItem] = useState(null);
   const [form, setForm] = useState({ client:"", title:"", assignee:"", status:"진행", start:"", end:"", progress:0, note:"", files:[] });
   const [filter, setFilter] = useState("전체");
+  const [staffFilter, setStaffFilter] = useState("전체");
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef();
 
@@ -335,11 +336,21 @@ function SalesTab({ projects, staffList, user }) {
             </button>
           ))}
         </div>
-        <button onClick={openAdd} style={{ padding:"7px 16px", borderRadius:6, border:"none", background:"#185FA5", color:"#fff", cursor:"pointer", fontSize:13 }}>+ 프로젝트 추가</button>
+       <button onClick={openAdd} style={{ padding:"7px 16px", borderRadius:6, border:"none", background:"#185FA5", color:"#fff", cursor:"pointer", fontSize:13 }}>+ 프로젝트 추가</button>
+      </div>
+
+      <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:14 }}>
+        <button onClick={() => setStaffFilter("전체")} style={{ padding:"4px 12px", borderRadius:20, border:"1px solid #ddd", cursor:"pointer", fontSize:12, background: staffFilter==="전체" ? "#333" : "#fff", color: staffFilter==="전체" ? "#fff" : "#555" }}>전체 직원</button>
+        {staffList.map((s,i) => (
+          <button key={s.id} onClick={() => setStaffFilter(s.name)} style={{ display:"flex", alignItems:"center", gap:5, padding:"4px 12px", borderRadius:20, cursor:"pointer", fontSize:12, border: staffFilter===s.name ? `1px solid ${AV_FG[i%AV_FG.length]}` : "1px solid #ddd", background: staffFilter===s.name ? AV_BG[i%AV_BG.length] : "#fff", color: staffFilter===s.name ? AV_FG[i%AV_FG.length] : "#888" }}>
+            <span style={{ width:14, height:14, borderRadius:"50%", background:AV_FG[i%AV_FG.length], color:"#fff", display:"flex", alignItems:"center", justifyContent:"center", fontSize:8 }}>{s.name[0]}</span>
+            {s.name}
+          </button>
+        ))}
       </div>
 
       <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(260px,1fr))", gap:12 }}>
-        {filtered.map(p => {
+        {filtered.filter(p => staffFilter==="전체" || p.assignee===staffFilter).map(p => {
           const barColor = p.status==="완료"?"#1D9E75":p.status==="지연"?"#E24B4A":"#378ADD";
           return (
             <div key={p.id} onClick={() => setViewItem(p)} style={{ background:"#fff", border:"1px solid #e8e8e8", borderRadius:12, padding:16, cursor:"pointer" }}>
@@ -484,6 +495,7 @@ function StaffTab({ staffList }) {
   const [tasks, setTasks] = useState([]);
   const [form, setForm] = useState({ assignee:"", title:"", desc:"", start:"", end:"", status:"진행", files:[] });
   const [uploading, setUploading] = useState(false);
+  const [staffFilter, setStaffFilter] = useState("전체");
   const fileRef = useRef();
 
   useEffect(() => {
@@ -523,16 +535,20 @@ function StaffTab({ staffList }) {
         <button onClick={openAdd} style={{ padding:"7px 16px", borderRadius:6, border:"none", background:"#185FA5", color:"#fff", cursor:"pointer", fontSize:13 }}>+ 업무 추가</button>
       </div>
 
-      <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom:16 }}>
+      
+<div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom:16 }}>
+        <button onClick={() => setStaffFilter("전체")} style={{ padding:"5px 14px", borderRadius:20, border:"1px solid #ddd", cursor:"pointer", background: staffFilter==="전체" ? "#333" : "#fff", color: staffFilter==="전체" ? "#fff" : "#555", fontSize:12, fontWeight:500 }}>
+          전체 ({tasks.length}건)
+        </button>
         {staffList.map((s,i) => (
-          <div key={s.id} style={{ display:"flex", alignItems:"center", gap:6, padding:"5px 14px", borderRadius:20, background:AV_BG[i%AV_BG.length], color:AV_FG[i%AV_FG.length], fontSize:12, fontWeight:500 }}>
+          <button key={s.id} onClick={() => setStaffFilter(s.name)} style={{ display:"flex", alignItems:"center", gap:6, padding:"5px 14px", borderRadius:20, cursor:"pointer", fontSize:12, fontWeight:500, border: staffFilter===s.name ? `2px solid ${AV_FG[i%AV_FG.length]}` : "1px solid transparent", background:AV_BG[i%AV_BG.length], color:AV_FG[i%AV_FG.length] }}>
             <span>{s.name}</span><span style={{ fontSize:11, opacity:0.8 }}>({tasks.filter(t=>t.assignee===s.name).length}건)</span>
-          </div>
+          </button>
         ))}
       </div>
 
       <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
-        {tasks.map(t => (
+        {tasks.filter(t => staffFilter==="전체" || t.assignee===staffFilter).map(t => (
           <div key={t.id} onClick={() => setViewItem(t)} style={{ background:"#fff", border:"1px solid #e8e8e8", borderRadius:10, padding:14, cursor:"pointer" }}>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:8 }}>
               <div><div style={{ fontWeight:500, fontSize:14 }}>{t.title}</div><div style={{ fontSize:12, color:"#888", marginTop:2 }}>담당: {t.assignee}</div></div>
