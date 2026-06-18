@@ -7,8 +7,8 @@ import {
 } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
-const AV_BG = ["#E6F1FB","#E1F5EE","#FAECE7","#EEEDFE","#FBEAF0"];
-const AV_FG = ["#185FA5","#0F6E56","#993C1D","#534AB7","#993556"];
+const AV_BG = ["#E6F1FB","#E1F5EE","#FAECE7","#EEEDFE","#FBEAF0","#FAEEDA","#EAF3DE","#F1EFE8"];
+const AV_FG = ["#185FA5","#0F6E56","#993C1D","#534AB7","#993556","#854F0B","#3B6D11","#5F5E5A"];
 const STATUS_LIST = ["진행","완료","대기","지연"];
 const STATUS_COLOR = {
   "진행":["#E6F1FB","#185FA5"], "완료":["#EAF3DE","#3B6D11"],
@@ -65,7 +65,7 @@ function StaffManager({ staffList, onClose }) {
         <div style={{ display:"flex", flexDirection:"column", gap:8, marginBottom:16 }}>
           {staffList.map((s, i) => (
             <div key={s.id} style={{ display:"flex", alignItems:"center", gap:8, padding:"8px 12px", background:"#f8f8f8", borderRadius:8 }}>
-              <div style={{ width:32, height:32, borderRadius:"50%", background:AV_BG[i%5], color:AV_FG[i%5], display:"flex", alignItems:"center", justifyContent:"center", fontSize:12, fontWeight:500, flexShrink:0 }}>{s.name[0]}</div>
+              <div style={{ width:32, height:32, borderRadius:"50%", background:AV_BG[i%AV_BG.length], color:AV_FG[i%AV_FG.length], display:"flex", alignItems:"center", justifyContent:"center", fontSize:12, fontWeight:500, flexShrink:0 }}>{s.name[0]}</div>
               {editId === s.id ? (
                 <>
                   <input value={editName} onChange={e => setEditName(e.target.value)} style={{ flex:1, padding:"5px 8px", borderRadius:6, border:"1px solid #ddd", fontSize:13 }} onKeyDown={e => e.key === "Enter" && saveEdit(s.id)} autoFocus />
@@ -95,9 +95,10 @@ function StaffManager({ staffList, onClose }) {
   );
 }
 
-function ScheduleTab({ staffList }) {
+function ScheduleTab({ staffList, user }) {
   const [events, setEvents] = useState([]);
   const [showForm, setShowForm] = useState(false);
+  const [viewItem, setViewItem] = useState(null);
   const [editItem, setEditItem] = useState(null);
   const [curDate, setCurDate] = useState(new Date());
   const [form, setForm] = useState({ date:"", staff:"", title:"", note:"" });
@@ -115,17 +116,22 @@ function ScheduleTab({ staffList }) {
 
   const changeMonth = (d) => setCurDate(new Date(year, month+d, 1));
 
-  const openAdd = (day) => {
+  const openAddNew = (day) => {
     setEditItem(null);
     const dateStr = `${year}-${String(month+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
     setForm({ date:dateStr, staff:staffList[0]?.name||"", title:"", note:"" });
     setShowForm(true);
   };
-  const openEdit = (ev) => {
-    setEditItem(ev);
-    setForm({ date:ev.date, staff:ev.staff, title:ev.title, note:ev.note||"" });
+
+  const openView = (ev) => setViewItem(ev);
+
+  const openEditFromView = () => {
+    setEditItem(viewItem);
+    setForm({ date:viewItem.date, staff:viewItem.staff, title:viewItem.title, note:viewItem.note||"" });
+    setViewItem(null);
     setShowForm(true);
   };
+
   const save = async () => {
     if (!form.title) return;
     if (editItem) await updateDoc(doc(db,"events",editItem.id), form);
@@ -133,13 +139,15 @@ function ScheduleTab({ staffList }) {
     setShowForm(false);
   };
   const remove = async (id) => {
-    if (window.confirm("일정을 삭제하시겠습니까?")) await deleteDoc(doc(db,"events",id));
+    if (window.confirm("일정을 삭제하시겠습니까?")) { await deleteDoc(doc(db,"events",id)); setViewItem(null); }
   };
 
   const staffColor = (name) => {
     const idx = staffList.findIndex(s => s.name === name);
-    return idx >= 0 ? [AV_BG[idx%5], AV_FG[idx%5]] : ["#F1EFE8","#5F5E5A"];
+    return idx >= 0 ? [AV_BG[idx%AV_BG.length], AV_FG[idx%AV_FG.length]] : ["#F1EFE8","#5F5E5A"];
   };
+
+  const canEdit = viewItem && (viewItem.staff === user.displayName);
 
   const cells = [];
   for (let i=0;i<firstDay;i++) cells.push(null);
@@ -158,7 +166,7 @@ function ScheduleTab({ staffList }) {
       <div style={{ display:"flex", gap:10, marginBottom:14, flexWrap:"wrap" }}>
         {staffList.map((s,i) => (
           <div key={s.id} style={{ display:"flex", alignItems:"center", gap:5, fontSize:12, color:"#888" }}>
-            <span style={{ width:9, height:9, borderRadius:"50%", background:AV_FG[i%5], display:"inline-block" }} />
+            <span style={{ width:9, height:9, borderRadius:"50%", background:AV_FG[i%AV_FG.length], display:"inline-block" }} />
             {s.name}
           </div>
         ))}
@@ -174,15 +182,16 @@ function ScheduleTab({ staffList }) {
           const dayEvents = events.filter(e => e.date === dateStr);
           const isToday = dateStr === todayStr;
           return (
-            <div key={i} onClick={() => openAdd(day)} style={{ background:"#fff", minHeight:80, padding:4, cursor:"pointer" }}>
-              <div style={{ fontSize:11, color:"#888", marginBottom:3 }}>
+            <div key={i} style={{ background:"#fff", minHeight:80, padding:4 }}>
+              <div onClick={() => openAddNew(day)} style={{ fontSize:11, color:"#888", marginBottom:3, cursor:"pointer" }}>
                 {isToday ? <span style={{ display:"inline-flex", alignItems:"center", justifyContent:"center", width:18, height:18, borderRadius:"50%", background:"#185FA5", color:"#fff" }}>{day}</span> : day}
               </div>
               {dayEvents.map(ev => {
                 const [bg,fg] = staffColor(ev.staff);
                 return (
-                  <div key={ev.id} onClick={(e) => { e.stopPropagation(); openEdit(ev); }} style={{ fontSize:10, padding:"1px 5px", borderRadius:4, marginBottom:2, background:bg, color:fg, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
-                    {ev.title}
+                  <div key={ev.id} onClick={() => openView(ev)} style={{ display:"flex", alignItems:"center", gap:3, fontSize:10, padding:"1px 5px", borderRadius:4, marginBottom:2, background:bg, color:fg, cursor:"pointer" }}>
+                    <span style={{ width:13, height:13, borderRadius:"50%", background:fg, color:bg, display:"flex", alignItems:"center", justifyContent:"center", fontSize:8, fontWeight:500, flexShrink:0 }}>{ev.staff?.[0]}</span>
+                    <span style={{ whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{ev.title}</span>
                   </div>
                 );
               })}
@@ -190,6 +199,40 @@ function ScheduleTab({ staffList }) {
           );
         })}
       </div>
+
+      {viewItem && (
+        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.35)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:100 }}>
+          <div style={{ background:"#fff", borderRadius:14, padding:24, width:340 }}>
+            {(() => {
+              const [bg,fg] = staffColor(viewItem.staff);
+              return (
+                <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:14 }}>
+                  <span style={{ width:10, height:10, borderRadius:"50%", background:fg, display:"inline-block" }} />
+                  <span style={{ fontSize:13, color:"#888" }}>{viewItem.date} · {viewItem.staff}</span>
+                </div>
+              );
+            })()}
+            <h3 style={{ marginBottom:14, fontWeight:500, fontSize:17 }}>{viewItem.title}</h3>
+            {viewItem.note ? (
+              <div style={{ fontSize:13, color:"#555", lineHeight:1.7, background:"#f8f8f8", borderRadius:8, padding:"10px 12px", marginBottom:16, whiteSpace:"pre-wrap" }}>{viewItem.note}</div>
+            ) : (
+              <div style={{ fontSize:13, color:"#bbb", marginBottom:16 }}>메모 없음</div>
+            )}
+            {!canEdit && (
+              <div style={{ fontSize:12, color:"#aaa", marginBottom:10 }}>담당 직원만 수정·삭제할 수 있어요</div>
+            )}
+            <div style={{ display:"flex", justifyContent:"space-between" }}>
+              {canEdit ? (
+                <button onClick={() => remove(viewItem.id)} style={{ padding:"8px 16px", borderRadius:6, border:"1px solid #fcc", background:"#fff", color:"#E24B4A", cursor:"pointer" }}>삭제</button>
+              ) : <div />}
+              <div style={{ display:"flex", gap:8 }}>
+                <button onClick={() => setViewItem(null)} style={{ padding:"8px 16px", borderRadius:6, border:"1px solid #ddd", background:"#fff", cursor:"pointer" }}>닫기</button>
+                {canEdit && <button onClick={openEditFromView} style={{ padding:"8px 16px", borderRadius:6, border:"none", background:"#185FA5", color:"#fff", cursor:"pointer" }}>수정</button>}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showForm && (
         <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.35)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:100 }}>
@@ -209,12 +252,9 @@ function ScheduleTab({ staffList }) {
               <div style={{ fontSize:12, color:"#888", marginBottom:3 }}>메모 (선택)</div>
               <textarea value={form.note} onChange={e => setForm({...form,note:e.target.value})} style={{ width:"100%", height:60, padding:"8px 10px", borderRadius:6, border:"1px solid #ddd", fontSize:13, resize:"vertical" }} />
             </div>
-            <div style={{ display:"flex", justifyContent:"space-between" }}>
-              {editItem ? <button onClick={() => { remove(editItem.id); setShowForm(false); }} style={{ padding:"8px 16px", borderRadius:6, border:"1px solid #fcc", background:"#fff", color:"#E24B4A", cursor:"pointer" }}>삭제</button> : <div />}
-              <div style={{ display:"flex", gap:8 }}>
-                <button onClick={() => setShowForm(false)} style={{ padding:"8px 16px", borderRadius:6, border:"1px solid #ddd", background:"#fff", cursor:"pointer" }}>취소</button>
-                <button onClick={save} style={{ padding:"8px 16px", borderRadius:6, border:"none", background:"#185FA5", color:"#fff", cursor:"pointer" }}>저장</button>
-              </div>
+            <div style={{ display:"flex", justifyContent:"flex-end", gap:8 }}>
+              <button onClick={() => setShowForm(false)} style={{ padding:"8px 16px", borderRadius:6, border:"1px solid #ddd", background:"#fff", cursor:"pointer" }}>취소</button>
+              <button onClick={save} style={{ padding:"8px 16px", borderRadius:6, border:"none", background:"#185FA5", color:"#fff", cursor:"pointer" }}>저장</button>
             </div>
           </div>
         </div>
@@ -361,7 +401,7 @@ function StaffTab({ staffList }) {
 
       <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom:16 }}>
         {staffList.map((s,i) => (
-          <div key={s.id} style={{ display:"flex", alignItems:"center", gap:6, padding:"5px 14px", borderRadius:20, background:AV_BG[i%5], color:AV_FG[i%5], fontSize:12, fontWeight:500 }}>
+          <div key={s.id} style={{ display:"flex", alignItems:"center", gap:6, padding:"5px 14px", borderRadius:20, background:AV_BG[i%AV_BG.length], color:AV_FG[i%AV_FG.length], fontSize:12, fontWeight:500 }}>
             <span>{s.name}</span><span style={{ fontSize:11, opacity:0.8 }}>({tasks.filter(t=>t.assignee===s.name).length}건)</span>
           </div>
         ))}
@@ -599,7 +639,7 @@ export default function App() {
 
           {tab==="sales" && <SalesTab projects={projects} staffList={staffList} />}
           {tab==="staff" && <StaffTab staffList={staffList} />}
-          {tab==="schedule" && <ScheduleTab staffList={staffList} />}
+          {tab==="schedule" && <ScheduleTab staffList={staffList} user={user} />}
 
           {tab==="delivery" && (
             <table style={{ width:"100%", borderCollapse:"collapse", fontSize:13 }}>
