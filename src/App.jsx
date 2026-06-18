@@ -737,6 +737,8 @@ export default function App() {
   const [projects, setProjects] = useState([]);
   const [deliveries, setDeliveries] = useState([]);
   const [staffList, setStaffList] = useState([]);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   useEffect(() => { const u = onAuthStateChanged(auth, setUser); return u; }, []);
   useEffect(() => {
@@ -745,47 +747,100 @@ export default function App() {
     const u3 = onSnapshot(collection(db,"staff"), snap => setStaffList(snap.docs.map(d => ({id:d.id,...d.data()}))));
     return () => { u1(); u2(); u3(); };
   }, []);
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
 
   const login = () => signInWithPopup(auth, provider);
   const logout = () => signOut(auth);
 
   if (!user) return (
-    <div style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", height:"100vh", gap:16 }}>
+    <div style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", height:"100vh", gap:16, padding:20, textAlign:"center" }}>
       <h1 style={{ fontSize:24, fontWeight:500 }}>에코테크 업무 시스템</h1>
       <p style={{ color:"#888" }}>Google 계정으로 로그인하세요</p>
       <button onClick={login} style={{ padding:"10px 24px", fontSize:15, cursor:"pointer", borderRadius:8, border:"1px solid #ddd", background:"#fff" }}>Google로 로그인</button>
     </div>
   );
 
-  const navItems = [["dashboard","전체현황"],["sales","영업 프로젝트"],["staff","직원업무"],["schedule","일정관리"],["delivery","납품·물류"]];
+  const navItems = [
+    ["dashboard","전체현황","chart-bar"],
+    ["sales","영업 프로젝트","briefcase"],
+    ["staff","직원업무","users"],
+    ["schedule","일정관리","calendar"],
+    ["delivery","납품·물류","truck"],
+  ];
   const channels = ["전체공지","영업팀","물류팀"];
 
-  return (
-    <div style={{ display:"flex", height:"100vh", fontFamily:"sans-serif", fontSize:14 }}>
-      <div style={{ width:190, background:"#f7f7f7", borderRight:"1px solid #e8e8e8", display:"flex", flexDirection:"column", padding:"12px 0" }}>
-        <div style={{ padding:"0 14px 12px", fontWeight:500, fontSize:15 }}>에코테크</div>
-        {navItems.map(([t,label]) => (
-          <div key={t} onClick={() => setTab(t)} style={{ padding:"7px 14px", cursor:"pointer", background:tab===t?"#ebebeb":"transparent", borderRadius:6, margin:"0 6px" }}>{label}</div>
-        ))}
-        <div style={{ padding:"10px 14px 4px", fontSize:11, color:"#aaa", marginTop:6 }}>메신저</div>
-        {channels.map(ch => (
-          <div key={ch} onClick={() => { setTab("chat"); setChannel(ch); }} style={{ padding:"7px 14px", cursor:"pointer", background:tab==="chat"&&channel===ch?"#ebebeb":"transparent", borderRadius:6, margin:"0 6px" }}># {ch}</div>
-        ))}
-        <div style={{ marginTop:"auto", padding:"12px 14px", fontSize:12, color:"#666" }}>
-          <div style={{ fontWeight:500 }}>{user.displayName}</div>
-          <div onClick={logout} style={{ cursor:"pointer", color:"#999", marginTop:3 }}>로그아웃</div>
-        </div>
-      </div>
+  const goTab = (t) => { setTab(t); setDrawerOpen(false); };
+  const goChat = (ch) => { setTab("chat"); setChannel(ch); setDrawerOpen(false); };
 
-      <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden" }}>
-        <div style={{ padding:"12px 20px", borderBottom:"1px solid #e8e8e8", fontWeight:500, fontSize:15 }}>
-          {tab==="dashboard"?"전체현황":tab==="sales"?"영업 프로젝트":tab==="staff"?"직원업무":tab==="schedule"?"일정관리":tab==="delivery"?"납품·물류":"# "+channel}
+  const tabLabel = tab==="dashboard"?"전체현황":tab==="sales"?"영업 프로젝트":tab==="staff"?"직원업무":tab==="schedule"?"일정관리":tab==="delivery"?"납품·물류":"# "+channel;
+
+  return (
+    <div style={{ display:"flex", height:"100vh", fontFamily:"sans-serif", fontSize:14, overflow:"hidden", position:"relative" }}>
+
+      {isMobile ? (
+        <>
+          <div style={{ width:54, background:"#f7f7f7", borderRight:"1px solid #e8e8e8", display:"flex", flexDirection:"column", alignItems:"center", padding:"14px 0", gap:14, flexShrink:0 }}>
+            <button onClick={() => setDrawerOpen(true)} style={{ width:36, height:36, borderRadius:8, border:"none", background: drawerOpen ? "#185FA5" : "transparent", color: drawerOpen ? "#fff" : "#555", display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", fontSize:20 }}>☰</button>
+            {navItems.map(([t,label]) => (
+              <button key={t} onClick={() => goTab(t)} title={label} style={{ width:36, height:36, borderRadius:8, border:"none", background: tab===t ? "#E6F1FB" : "transparent", color: tab===t ? "#185FA5" : "#888", display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", fontSize:11, fontWeight:500 }}>
+                {label[0]}
+              </button>
+            ))}
+            <button onClick={() => goChat("전체공지")} title="메신저" style={{ width:36, height:36, borderRadius:8, border:"none", background: tab==="chat" ? "#E6F1FB" : "transparent", color: tab==="chat" ? "#185FA5" : "#888", display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", fontSize:16 }}>💬</button>
+          </div>
+
+          {drawerOpen && (
+            <div onClick={() => setDrawerOpen(false)} style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.35)", zIndex:300 }} />
+          )}
+          <div style={{
+            position:"fixed", top:0, left:0, bottom:0, width:200, background:"#f7f7f7", zIndex:301,
+            transform: drawerOpen ? "translateX(0)" : "translateX(-100%)", transition:"transform 0.25s ease",
+            display:"flex", flexDirection:"column", padding:"12px 0", boxShadow:"2px 0 10px rgba(0,0,0,0.15)"
+          }}>
+            <div style={{ padding:"0 14px 12px", fontWeight:500, fontSize:15, borderBottom:"1px solid #e8e8e8", marginBottom:8 }}>에코테크</div>
+            {navItems.map(([t,label]) => (
+              <div key={t} onClick={() => goTab(t)} style={{ padding:"9px 14px", cursor:"pointer", background:tab===t?"#ebebeb":"transparent", borderRadius:6, margin:"0 6px", fontWeight: tab===t?500:400 }}>{label}</div>
+            ))}
+            <div style={{ padding:"10px 14px 4px", fontSize:11, color:"#aaa", marginTop:6 }}>메신저</div>
+            {channels.map(ch => (
+              <div key={ch} onClick={() => goChat(ch)} style={{ padding:"9px 14px", cursor:"pointer", background:tab==="chat"&&channel===ch?"#ebebeb":"transparent", borderRadius:6, margin:"0 6px" }}># {ch}</div>
+            ))}
+            <div style={{ marginTop:"auto", padding:"12px 14px", fontSize:12, color:"#666" }}>
+              <div style={{ fontWeight:500 }}>{user.displayName}</div>
+              <div onClick={logout} style={{ cursor:"pointer", color:"#999", marginTop:3 }}>로그아웃</div>
+            </div>
+          </div>
+        </>
+      ) : (
+        <div style={{ width:190, background:"#f7f7f7", borderRight:"1px solid #e8e8e8", display:"flex", flexDirection:"column", padding:"12px 0", flexShrink:0 }}>
+          <div style={{ padding:"0 14px 12px", fontWeight:500, fontSize:15 }}>에코테크</div>
+          {navItems.map(([t,label]) => (
+            <div key={t} onClick={() => setTab(t)} style={{ padding:"7px 14px", cursor:"pointer", background:tab===t?"#ebebeb":"transparent", borderRadius:6, margin:"0 6px" }}>{label}</div>
+          ))}
+          <div style={{ padding:"10px 14px 4px", fontSize:11, color:"#aaa", marginTop:6 }}>메신저</div>
+          {channels.map(ch => (
+            <div key={ch} onClick={() => { setTab("chat"); setChannel(ch); }} style={{ padding:"7px 14px", cursor:"pointer", background:tab==="chat"&&channel===ch?"#ebebeb":"transparent", borderRadius:6, margin:"0 6px" }}># {ch}</div>
+          ))}
+          <div style={{ marginTop:"auto", padding:"12px 14px", fontSize:12, color:"#666" }}>
+            <div style={{ fontWeight:500 }}>{user.displayName}</div>
+            <div onClick={logout} style={{ cursor:"pointer", color:"#999", marginTop:3 }}>로그아웃</div>
+          </div>
         </div>
-        <div style={{ flex:1, overflowY:"auto", padding:20 }}>
+      )}
+
+      <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden", minWidth:0 }}>
+        <div style={{ padding:"12px 16px", borderBottom:"1px solid #e8e8e8", fontWeight:500, fontSize:15, flexShrink:0 }}>
+          {tabLabel}
+        </div>
+        <div style={{ flex:1, overflowY:"auto", padding: isMobile ? 14 : 20, minWidth:0 }}>
 
           {tab==="dashboard" && (
             <div>
-              <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(130px,1fr))", gap:10, marginBottom:20 }}>
+              <div style={{ display:"grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(auto-fit,minmax(130px,1fr))", gap:10, marginBottom:20 }}>
                 {[
                   ["진행 프로젝트", projects.filter(p=>p.status==="진행").length+"건"],
                   ["납품 대기", deliveries.filter(d=>d.status!=="납품완료").length+"건"],
@@ -799,7 +854,7 @@ export default function App() {
                 ))}
               </div>
               <div style={{ fontWeight:500, marginBottom:10 }}>최근 프로젝트</div>
-              <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))", gap:10 }}>
+              <div style={{ display:"grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit,minmax(220px,1fr))", gap:10 }}>
                 {projects.slice(0,4).map(p => (
                   <div key={p.id} style={{ background:"#fff", border:"1px solid #e8e8e8", borderRadius:10, padding:14 }}>
                     <div style={{ display:"flex", justifyContent:"space-between", marginBottom:6 }}><span style={{ fontWeight:500 }}>{p.client}</span><Badge s={p.status} /></div>
@@ -817,20 +872,22 @@ export default function App() {
           {tab==="schedule" && <ScheduleTab staffList={staffList} user={user} />}
 
           {tab==="delivery" && (
-            <table style={{ width:"100%", borderCollapse:"collapse", fontSize:13 }}>
-              <thead><tr>{["거래처","품목","수량","납기일","상태"].map(h => (
-                <th key={h} style={{ textAlign:"left", padding:"8px 10px", borderBottom:"1px solid #e8e8e8", color:"#888", fontWeight:400 }}>{h}</th>
-              ))}</tr></thead>
-              <tbody>
-                {deliveries.map(d => (
-                  <tr key={d.id}>
-                    {[d.client,d.content,d.amount,d.date].map((v,i) => <td key={i} style={{ padding:"10px", borderBottom:"1px solid #f0f0f0" }}>{v}</td>)}
-                    <td style={{ padding:"10px", borderBottom:"1px solid #f0f0f0" }}><Badge s={d.status} /></td>
-                  </tr>
-                ))}
-                {deliveries.length===0 && <tr><td colSpan={5} style={{ padding:20, color:"#aaa" }}>납품 데이터가 없어요</td></tr>}
-              </tbody>
-            </table>
+            <div style={{ overflowX:"auto" }}>
+              <table style={{ width:"100%", borderCollapse:"collapse", fontSize:13, minWidth:480 }}>
+                <thead><tr>{["거래처","품목","수량","납기일","상태"].map(h => (
+                  <th key={h} style={{ textAlign:"left", padding:"8px 10px", borderBottom:"1px solid #e8e8e8", color:"#888", fontWeight:400 }}>{h}</th>
+                ))}</tr></thead>
+                <tbody>
+                  {deliveries.map(d => (
+                    <tr key={d.id}>
+                      {[d.client,d.content,d.amount,d.date].map((v,i) => <td key={i} style={{ padding:"10px", borderBottom:"1px solid #f0f0f0" }}>{v}</td>)}
+                      <td style={{ padding:"10px", borderBottom:"1px solid #f0f0f0" }}><Badge s={d.status} /></td>
+                    </tr>
+                  ))}
+                  {deliveries.length===0 && <tr><td colSpan={5} style={{ padding:20, color:"#aaa" }}>납품 데이터가 없어요</td></tr>}
+                </tbody>
+              </table>
+            </div>
           )}
 
           {tab==="chat" && <ChatTab user={user} channel={channel} />}
