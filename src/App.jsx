@@ -180,7 +180,7 @@ function ScheduleTab({ staffList, user }) {
         ))}
       </div>
 
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:1, background:"#e8e8e8", borderRadius:8, overflow:"hidden", border:"1px solid #e8e8e8" }}>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:1, background:"#e8e8e8", borderRadius:8, overflow:"hidden", border:"1px solid #e8e8e8", tableLayout:"fixed" }}>
         {["일","월","화","수","목","금","토"].map(d => (
           <div key={d} style={{ background:"#f7f7f7", textAlign:"center", fontSize:11, color:"#888", padding:"6px 0" }}>{d}</div>
         ))}
@@ -190,7 +190,7 @@ function ScheduleTab({ staffList, user }) {
           const dayEvents = events.filter(e => e.date === dateStr);
           const isToday = dateStr === todayStr;
           return (
-            <div key={i} style={{ background:"#fff", minHeight:80, padding:4 }}>
+            <div key={i} style={{ background:"#fff", minHeight:80, padding:4, minWidth:0, overflow:"hidden" }}>
               <div onClick={() => openAddNew(day)} style={{ fontSize:11, color:"#888", marginBottom:3, cursor:"pointer" }}>
                 {isToday ? <span style={{ display:"inline-flex", alignItems:"center", justifyContent:"center", width:18, height:18, borderRadius:"50%", background:"#185FA5", color:"#fff" }}>{day}</span> : day}
               </div>
@@ -198,14 +198,14 @@ function ScheduleTab({ staffList, user }) {
                 const evStaffs = getStaffs(ev);
                 const [bg,fg] = staffColor(evStaffs[0]);
                 return (
-                  <div key={ev.id} onClick={() => openView(ev)} style={{ display:"flex", alignItems:"center", gap:3, fontSize:10, padding:"1px 5px", borderRadius:4, marginBottom:2, background:bg, color:fg, cursor:"pointer" }}>
+                  <div key={ev.id} onClick={() => openView(ev)} style={{ display:"flex", alignItems:"center", gap:3, fontSize:10, padding:"1px 5px", borderRadius:4, marginBottom:2, background:bg, color:fg, cursor:"pointer", width:"100%", minWidth:0, overflow:"hidden", boxSizing:"border-box" }}>
                     <span style={{ display:"flex", flexShrink:0 }}>
                       {evStaffs.slice(0,3).map((sn,idx) => {
                         const [,sfg] = staffColor(sn);
-                        return <span key={idx} style={{ width:13, height:13, borderRadius:"50%", background:sfg, color:bg, display:"flex", alignItems:"center", justifyContent:"center", fontSize:8, fontWeight:500, marginLeft: idx>0?-4:0, border:"1px solid #fff" }}>{sn[0]}</span>;
+                        return <span key={idx} style={{ width:13, height:13, borderRadius:"50%", background:sfg, color:bg, display:"flex", alignItems:"center", justifyContent:"center", fontSize:8, fontWeight:500, marginLeft: idx>0?-4:0, border:"1px solid #fff", flexShrink:0 }}>{sn[0]}</span>;
                       })}
                     </span>
-                    <span style={{ whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{ev.title}</span>
+                    <span style={{ whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", minWidth:0, flex:1 }}>{ev.title}</span>
                   </div>
                 );
               })}
@@ -293,7 +293,7 @@ function SalesTab({ projects, staffList, user }) {
   const [showForm, setShowForm] = useState(false);
   const [viewItem, setViewItem] = useState(null);
   const [editItem, setEditItem] = useState(null);
-  const [form, setForm] = useState({ client:"", title:"", assignee:"", status:"진행", start:"", end:"", progress:0, note:"" });
+  const [form, setForm] = useState({ client:"", title:"", assignee:"", status:"진행", start:"", end:"", progress:0, note:"", files:[] });
   const [filter, setFilter] = useState("전체");
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef();
