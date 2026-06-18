@@ -42,41 +42,50 @@ function isSameDay(ts1, ts2) {
 
 function StaffManager({ staffList, onClose }) {
   const [newName, setNewName] = useState("");
+  const [newEmail, setNewEmail] = useState("");
   const [editId, setEditId] = useState(null);
   const [editName, setEditName] = useState("");
+  const [editEmail, setEditEmail] = useState("");
 
   const add = async () => {
     if (!newName.trim()) return;
-    await addDoc(collection(db, "staff"), { name: newName.trim(), createdAt: serverTimestamp() });
-    setNewName("");
+    await addDoc(collection(db, "staff"), { name: newName.trim(), email: newEmail.trim().toLowerCase(), createdAt: serverTimestamp() });
+    setNewName(""); setNewEmail("");
   };
   const remove = async (id, name) => {
     if (window.confirm(`"${name}" 직원을 삭제하시겠습니까?`)) await deleteDoc(doc(db, "staff", id));
   };
   const saveEdit = async (id) => {
     if (!editName.trim()) return;
-    await updateDoc(doc(db, "staff", id), { name: editName.trim() });
+    await updateDoc(doc(db, "staff", id), { name: editName.trim(), email: editEmail.trim().toLowerCase() });
     setEditId(null);
   };
 
   return (
     <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.35)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:200 }}>
-      <div style={{ background:"#fff", borderRadius:14, padding:24, width:360, maxHeight:"85vh", overflowY:"auto" }}>
-        <h3 style={{ fontWeight:500, marginBottom:16 }}>직원 관리</h3>
+      <div style={{ background:"#fff", borderRadius:14, padding:24, width:380, maxHeight:"85vh", overflowY:"auto" }}>
+        <h3 style={{ fontWeight:500, marginBottom:6 }}>직원 관리</h3>
+        <div style={{ fontSize:12, color:"#999", marginBottom:16, lineHeight:1.6 }}>구글 로그인 이메일을 등록하면, 로그인 계정 이름이 달라도 접속 현황에 직원관리 이름으로 표시돼요.</div>
         <div style={{ display:"flex", flexDirection:"column", gap:8, marginBottom:16 }}>
           {staffList.map((s, i) => (
             <div key={s.id} style={{ display:"flex", alignItems:"center", gap:8, padding:"8px 12px", background:"#f8f8f8", borderRadius:8 }}>
               <div style={{ width:32, height:32, borderRadius:"50%", background:AV_BG[i%AV_BG.length], color:AV_FG[i%AV_FG.length], display:"flex", alignItems:"center", justifyContent:"center", fontSize:12, fontWeight:500, flexShrink:0 }}>{s.name[0]}</div>
               {editId === s.id ? (
                 <>
-                  <input value={editName} onChange={e => setEditName(e.target.value)} style={{ flex:1, padding:"5px 8px", borderRadius:6, border:"1px solid #ddd", fontSize:13 }} onKeyDown={e => e.key === "Enter" && saveEdit(s.id)} autoFocus />
+                  <div style={{ flex:1, display:"flex", flexDirection:"column", gap:4 }}>
+                    <input value={editName} onChange={e => setEditName(e.target.value)} style={{ padding:"5px 8px", borderRadius:6, border:"1px solid #ddd", fontSize:13 }} placeholder="이름" autoFocus />
+                    <input value={editEmail} onChange={e => setEditEmail(e.target.value)} onKeyDown={e => e.key === "Enter" && saveEdit(s.id)} style={{ padding:"5px 8px", borderRadius:6, border:"1px solid #ddd", fontSize:12 }} placeholder="구글 로그인 이메일 (선택)" />
+                  </div>
                   <button onClick={() => saveEdit(s.id)} style={{ padding:"5px 10px", borderRadius:6, border:"none", background:"#185FA5", color:"#fff", fontSize:12, cursor:"pointer" }}>저장</button>
                   <button onClick={() => setEditId(null)} style={{ padding:"5px 10px", borderRadius:6, border:"1px solid #ddd", background:"#fff", fontSize:12, cursor:"pointer" }}>취소</button>
                 </>
               ) : (
                 <>
-                  <span style={{ flex:1, fontSize:13, fontWeight:500 }}>{s.name}</span>
-                  <button onClick={() => { setEditId(s.id); setEditName(s.name); }} style={{ padding:"4px 10px", borderRadius:6, border:"1px solid #ddd", background:"#fff", fontSize:12, cursor:"pointer" }}>수정</button>
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontSize:13, fontWeight:500 }}>{s.name}</div>
+                    <div style={{ fontSize:11, color: s.email ? "#999" : "#ccc" }}>{s.email || "연동된 이메일 없음"}</div>
+                  </div>
+                  <button onClick={() => { setEditId(s.id); setEditName(s.name); setEditEmail(s.email||""); }} style={{ padding:"4px 10px", borderRadius:6, border:"1px solid #ddd", background:"#fff", fontSize:12, cursor:"pointer" }}>수정</button>
                   <button onClick={() => remove(s.id, s.name)} style={{ padding:"4px 10px", borderRadius:6, border:"1px solid #fcc", background:"#fff", color:"#E24B4A", fontSize:12, cursor:"pointer" }}>삭제</button>
                 </>
               )}
@@ -84,9 +93,12 @@ function StaffManager({ staffList, onClose }) {
           ))}
           {staffList.length === 0 && <div style={{ color:"#aaa", fontSize:13 }}>등록된 직원이 없어요</div>}
         </div>
-        <div style={{ display:"flex", gap:8, marginBottom:16 }}>
-          <input value={newName} onChange={e => setNewName(e.target.value)} onKeyDown={e => e.key === "Enter" && add()} placeholder="새 직원 이름 입력" style={{ flex:1, padding:"8px 10px", borderRadius:6, border:"1px solid #ddd", fontSize:13 }} />
-          <button onClick={add} style={{ padding:"8px 16px", borderRadius:6, border:"none", background:"#185FA5", color:"#fff", cursor:"pointer", fontSize:13 }}>추가</button>
+        <div style={{ display:"flex", flexDirection:"column", gap:6, marginBottom:16 }}>
+          <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="새 직원 이름 입력" style={{ padding:"8px 10px", borderRadius:6, border:"1px solid #ddd", fontSize:13 }} />
+          <div style={{ display:"flex", gap:8 }}>
+            <input value={newEmail} onChange={e => setNewEmail(e.target.value)} onKeyDown={e => e.key === "Enter" && add()} placeholder="구글 로그인 이메일 (선택)" style={{ flex:1, padding:"8px 10px", borderRadius:6, border:"1px solid #ddd", fontSize:13 }} />
+            <button onClick={add} style={{ padding:"8px 16px", borderRadius:6, border:"none", background:"#185FA5", color:"#fff", cursor:"pointer", fontSize:13 }}>추가</button>
+          </div>
         </div>
         <div style={{ display:"flex", justifyContent:"flex-end" }}>
           <button onClick={onClose} style={{ padding:"8px 20px", borderRadius:6, border:"none", background:"#185FA5", color:"#fff", cursor:"pointer" }}>완료</button>
@@ -296,6 +308,7 @@ function SalesTab({ projects, staffList, user }) {
   const [editItem, setEditItem] = useState(null);
   const [form, setForm] = useState({ client:"", title:"", assignee:"", status:"진행", start:"", end:"", progress:0, note:"", files:[] });
   const [filter, setFilter] = useState("전체");
+  const [staffFilter, setStaffFilter] = useState("전체");
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef();
 
@@ -339,8 +352,18 @@ function SalesTab({ projects, staffList, user }) {
         <button onClick={openAdd} style={{ padding:"7px 16px", borderRadius:6, border:"none", background:"#185FA5", color:"#fff", cursor:"pointer", fontSize:13 }}>+ 프로젝트 추가</button>
       </div>
 
+      <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:14 }}>
+        <button onClick={() => setStaffFilter("전체")} style={{ padding:"4px 12px", borderRadius:20, border:"1px solid #ddd", cursor:"pointer", fontSize:12, background: staffFilter==="전체" ? "#333" : "#fff", color: staffFilter==="전체" ? "#fff" : "#555" }}>전체 직원</button>
+        {staffList.map((s,i) => (
+          <button key={s.id} onClick={() => setStaffFilter(s.name)} style={{ display:"flex", alignItems:"center", gap:5, padding:"4px 12px", borderRadius:20, cursor:"pointer", fontSize:12, border: staffFilter===s.name ? `1px solid ${AV_FG[i%AV_FG.length]}` : "1px solid #ddd", background: staffFilter===s.name ? AV_BG[i%AV_BG.length] : "#fff", color: staffFilter===s.name ? AV_FG[i%AV_FG.length] : "#888" }}>
+            <span style={{ width:14, height:14, borderRadius:"50%", background:AV_FG[i%AV_FG.length], color:"#fff", display:"flex", alignItems:"center", justifyContent:"center", fontSize:8 }}>{s.name[0]}</span>
+            {s.name}
+          </button>
+        ))}
+      </div>
+
       <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(260px,1fr))", gap:12 }}>
-        {filtered.map(p => {
+        {filtered.filter(p => staffFilter==="전체" || p.assignee===staffFilter).map(p => {
           const barColor = p.status==="완료"?"#1D9E75":p.status==="지연"?"#E24B4A":"#378ADD";
           return (
             <div key={p.id} onClick={() => setViewItem(p)} style={{ background:"#fff", border:"1px solid #e8e8e8", borderRadius:12, padding:16, cursor:"pointer" }}>
@@ -477,20 +500,15 @@ function SalesTab({ projects, staffList, user }) {
   );
 }
 
-function StaffTab({ staffList }) {
+function StaffTab({ staffList, tasks }) {
   const [showForm, setShowForm] = useState(false);
   const [showMgr, setShowMgr] = useState(false);
   const [viewItem, setViewItem] = useState(null);
   const [editItem, setEditItem] = useState(null);
-  const [tasks, setTasks] = useState([]);
   const [form, setForm] = useState({ assignee:"", title:"", desc:"", start:"", end:"", status:"진행", files:[] });
   const [uploading, setUploading] = useState(false);
+  const [staffFilter, setStaffFilter] = useState("전체");
   const fileRef = useRef();
-
-  useEffect(() => {
-    const unsub = onSnapshot(collection(db,"tasks"), snap => setTasks(snap.docs.map(d => ({ id:d.id, ...d.data() }))));
-    return unsub;
-  }, []);
 
   const openAdd = () => { setEditItem(null); setForm({ assignee:staffList[0]?.name||"", title:"", desc:"", start:"", end:"", status:"진행", files:[] }); setShowForm(true); };
   const openEditFromView = () => { setEditItem(viewItem); setForm({ assignee:viewItem.assignee||"", title:viewItem.title||"", desc:viewItem.desc||"", start:viewItem.start||"", end:viewItem.end||"", status:viewItem.status||"진행", files:viewItem.files||[] }); setViewItem(null); setShowForm(true); };
@@ -525,15 +543,18 @@ function StaffTab({ staffList }) {
       </div>
 
       <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom:16 }}>
+        <button onClick={() => setStaffFilter("전체")} style={{ padding:"5px 14px", borderRadius:20, border:"1px solid #ddd", cursor:"pointer", background: staffFilter==="전체" ? "#333" : "#fff", color: staffFilter==="전체" ? "#fff" : "#555", fontSize:12, fontWeight:500 }}>
+          전체 ({tasks.length}건)
+        </button>
         {staffList.map((s,i) => (
-          <div key={s.id} style={{ display:"flex", alignItems:"center", gap:6, padding:"5px 14px", borderRadius:20, background:AV_BG[i%AV_BG.length], color:AV_FG[i%AV_FG.length], fontSize:12, fontWeight:500 }}>
+          <button key={s.id} onClick={() => setStaffFilter(s.name)} style={{ display:"flex", alignItems:"center", gap:6, padding:"5px 14px", borderRadius:20, cursor:"pointer", fontSize:12, fontWeight:500, border: staffFilter===s.name ? `2px solid ${AV_FG[i%AV_FG.length]}` : "1px solid transparent", background:AV_BG[i%AV_BG.length], color:AV_FG[i%AV_FG.length] }}>
             <span>{s.name}</span><span style={{ fontSize:11, opacity:0.8 }}>({tasks.filter(t=>t.assignee===s.name).length}건)</span>
-          </div>
+          </button>
         ))}
       </div>
 
       <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
-        {tasks.map(t => (
+        {tasks.filter(t => staffFilter==="전체" || t.assignee===staffFilter).map(t => (
           <div key={t.id} onClick={() => setViewItem(t)} style={{ background:"#fff", border:"1px solid #e8e8e8", borderRadius:10, padding:14, cursor:"pointer" }}>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:8 }}>
               <div><div style={{ fontWeight:500, fontSize:14 }}>{t.title}</div><div style={{ fontSize:12, color:"#888", marginTop:2 }}>담당: {t.assignee}</div></div>
@@ -731,6 +752,166 @@ function ChatTab({ user, channel }) {
   );
 }
 
+function StaffDetailModal({ name, projects, tasks, events, onClose }) {
+  const [detailItem, setDetailItem] = useState(null); // { type:'project'|'task'|'event', data }
+  const myProjects = projects.filter(p => p.assignee === name);
+  const myTasks = tasks.filter(t => t.assignee === name);
+  const myEvents = events
+    .filter(e => (e.staffs && e.staffs.includes(name)) || e.staff === name)
+    .sort((a,b) => (a.date||"").localeCompare(b.date||""));
+  const todayStr = new Date().toISOString().slice(0,10);
+
+  const Section = ({ title, count, children }) => (
+    <div style={{ marginBottom:18 }}>
+      <div style={{ fontSize:13, fontWeight:500, color:"#333", marginBottom:8 }}>{title} <span style={{ color:"#aaa", fontWeight:400 }}>({count})</span></div>
+      {count === 0 ? (
+        <div style={{ fontSize:12, color:"#bbb", padding:"8px 0" }}>등록된 내용이 없어요</div>
+      ) : (
+        <div style={{ display:"flex", flexDirection:"column", gap:6 }}>{children}</div>
+      )}
+    </div>
+  );
+
+  const Field = ({ label, value }) => (
+    <div style={{ background:"#f8f8f8", borderRadius:6, padding:"8px 10px" }}>
+      <div style={{ fontSize:11, color:"#aaa", marginBottom:2 }}>{label}</div>
+      <div style={{ fontSize:14, fontWeight:500 }}>{value}</div>
+    </div>
+  );
+
+  const renderDetail = () => {
+    const { type, data } = detailItem;
+    if (type === "project") return (
+      <>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:14 }}>
+          <div><div style={{ fontWeight:500, fontSize:17 }}>{data.client}</div><div style={{ fontSize:13, color:"#888", marginTop:3 }}>{data.title}</div></div>
+          <Badge s={data.status} />
+        </div>
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:14 }}>
+          <Field label="담당자" value={data.assignee||"-"} />
+          <Field label="진행률" value={(data.progress||0)+"%"} />
+          <Field label="시작일" value={data.start||"-"} />
+          <Field label="완료예정" value={data.end||"-"} />
+        </div>
+        <div style={{ height:6, background:"#eee", borderRadius:3, marginBottom:16 }}>
+          <div style={{ height:"100%", width:(data.progress||0)+"%", background:"#378ADD", borderRadius:3 }} />
+        </div>
+        <div style={{ fontSize:12, color:"#888", marginBottom:6 }}>메모</div>
+        <div style={{ fontSize:13, color:"#555", lineHeight:1.7, background:"#f8f8f8", borderRadius:8, padding:"10px 12px", marginBottom:16, whiteSpace:"pre-wrap", minHeight:40 }}>
+          {data.note || <span style={{ color:"#bbb" }}>메모 없음</span>}
+        </div>
+        {data.files && data.files.length > 0 && (
+          <div style={{ marginBottom:6 }}>
+            <div style={{ fontSize:12, color:"#888", marginBottom:6 }}>첨부파일</div>
+            <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+              {data.files.map((f,idx) => (
+                <a key={idx} href={f.url} target="_blank" rel="noreferrer" style={{ display:"flex", alignItems:"center", gap:6, background:"#f5f5f5", padding:"8px 12px", borderRadius:8, fontSize:13, color:"#185FA5", textDecoration:"none" }}>📎 {f.name}</a>
+              ))}
+            </div>
+          </div>
+        )}
+      </>
+    );
+    if (type === "task") return (
+      <>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:14 }}>
+          <div><div style={{ fontWeight:500, fontSize:17 }}>{data.title}</div><div style={{ fontSize:13, color:"#888", marginTop:3 }}>담당: {data.assignee}</div></div>
+          <Badge s={data.status} />
+        </div>
+        {(data.start || data.end) && (
+          <div style={{ background:"#f8f8f8", borderRadius:6, padding:"8px 10px", marginBottom:14, fontSize:13 }}>📅 {data.start||"-"} → {data.end||"-"}</div>
+        )}
+        <div style={{ fontSize:12, color:"#888", marginBottom:6 }}>업무 내용</div>
+        <div style={{ fontSize:13, color:"#555", lineHeight:1.7, background:"#f8f8f8", borderRadius:8, padding:"10px 12px", marginBottom:16, whiteSpace:"pre-wrap", minHeight:40 }}>
+          {data.desc || <span style={{ color:"#bbb" }}>내용 없음</span>}
+        </div>
+        {data.files && data.files.length > 0 && (
+          <div style={{ marginBottom:6 }}>
+            <div style={{ fontSize:12, color:"#888", marginBottom:6 }}>첨부파일</div>
+            <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+              {data.files.map((f,idx) => (
+                <a key={idx} href={f.url} target="_blank" rel="noreferrer" style={{ display:"flex", alignItems:"center", gap:6, background:"#f5f5f5", padding:"8px 12px", borderRadius:8, fontSize:13, color:"#185FA5", textDecoration:"none" }}>📎 {f.name}</a>
+              ))}
+            </div>
+          </div>
+        )}
+      </>
+    );
+    // event
+    const staffs = data.staffs && data.staffs.length ? data.staffs : (data.staff ? [data.staff] : []);
+    return (
+      <>
+        <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:14, flexWrap:"wrap" }}>
+          {staffs.map((sn,idx) => (
+            <span key={idx} style={{ background:"#E6F1FB", color:"#185FA5", padding:"3px 10px", borderRadius:14, fontSize:12, fontWeight:500 }}>{sn}</span>
+          ))}
+        </div>
+        <div style={{ fontSize:13, color:"#888", marginBottom:6 }}>{data.date}</div>
+        <h3 style={{ marginBottom:14, fontWeight:500, fontSize:17 }}>{data.title}</h3>
+        {data.note ? (
+          <div style={{ fontSize:13, color:"#555", lineHeight:1.7, background:"#f8f8f8", borderRadius:8, padding:"10px 12px", whiteSpace:"pre-wrap" }}>{data.note}</div>
+        ) : (
+          <div style={{ fontSize:13, color:"#bbb" }}>메모 없음</div>
+        )}
+      </>
+    );
+  };
+
+  return (
+    <div onClick={onClose} style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.4)", zIndex:500, display:"flex", alignItems:"center", justifyContent:"center", padding:16 }}>
+      <div onClick={e => e.stopPropagation()} style={{ background:"#fff", borderRadius:12, width:"100%", maxWidth:440, maxHeight:"82vh", display:"flex", flexDirection:"column", overflow:"hidden" }}>
+        <div style={{ padding:"16px 18px", borderBottom:"1px solid #eee", display:"flex", justifyContent:"space-between", alignItems:"center", flexShrink:0 }}>
+          {detailItem ? (
+            <div onClick={() => setDetailItem(null)} style={{ display:"flex", alignItems:"center", gap:6, cursor:"pointer", color:"#185FA5", fontSize:14, fontWeight:500 }}>← {name}님의 현황</div>
+          ) : (
+            <div style={{ fontSize:16, fontWeight:600 }}>{name}님의 현황</div>
+          )}
+          <span onClick={onClose} style={{ cursor:"pointer", color:"#999", fontSize:20, lineHeight:1 }}>×</span>
+        </div>
+        <div style={{ padding:18, overflowY:"auto" }}>
+          {detailItem ? renderDetail() : (
+            <>
+              <Section title="영업 프로젝트" count={myProjects.length}>
+                {myProjects.map(p => (
+                  <div key={p.id} onClick={() => setDetailItem({type:"project", data:p})} style={{ background:"#fafafa", border:"1px solid #eee", borderRadius:8, padding:"8px 10px", cursor:"pointer" }}>
+                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:4 }}>
+                      <span style={{ fontSize:13, fontWeight:500 }}>{p.client}</span>
+                      <Badge s={p.status} />
+                    </div>
+                    <div style={{ fontSize:12, color:"#888" }}>{p.title}</div>
+                    <div style={{ marginTop:6, height:4, background:"#eee", borderRadius:2 }}><div style={{ height:"100%", width:(p.progress||0)+"%", background:"#378ADD", borderRadius:2 }} /></div>
+                  </div>
+                ))}
+              </Section>
+
+              <Section title="직원업무" count={myTasks.length}>
+                {myTasks.map(t => (
+                  <div key={t.id} onClick={() => setDetailItem({type:"task", data:t})} style={{ background:"#fafafa", border:"1px solid #eee", borderRadius:8, padding:"8px 10px", cursor:"pointer" }}>
+                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                      <span style={{ fontSize:13, fontWeight:500 }}>{t.title}</span>
+                      <Badge s={t.status} />
+                    </div>
+                    {(t.start || t.end) && <div style={{ fontSize:11, color:"#999", marginTop:3 }}>📅 {t.start||"-"} → {t.end||"-"}</div>}
+                  </div>
+                ))}
+              </Section>
+
+              <Section title="일정관리" count={myEvents.length}>
+                {myEvents.map(e => (
+                  <div key={e.id} onClick={() => setDetailItem({type:"event", data:e})} style={{ display:"flex", alignItems:"center", gap:8, padding:"6px 10px", background: e.date===todayStr ? "#E6F1FB" : "#fafafa", border:"1px solid #eee", borderRadius:8, cursor:"pointer" }}>
+                    <span style={{ fontSize:11, color: e.date===todayStr ? "#185FA5" : "#999", fontWeight:500, flexShrink:0 }}>{e.date}{e.date===todayStr?" · 오늘":""}</span>
+                    <span style={{ fontSize:13 }}>{e.title}</span>
+                  </div>
+                ))}
+              </Section>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const [user, setUser] = useState(null);
   const [authChecked, setAuthChecked] = useState(false);
@@ -743,6 +924,9 @@ export default function App() {
   const [projects, setProjects] = useState([]);
   const [deliveries, setDeliveries] = useState([]);
   const [staffList, setStaffList] = useState([]);
+  const [tasks, setTasks] = useState([]);
+  const [allEvents, setAllEvents] = useState([]);
+  const [selectedStaff, setSelectedStaff] = useState(null);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
@@ -787,7 +971,7 @@ export default function App() {
   useEffect(() => {
     if (!user || approvalStatus !== "approved") return;
     const presenceRef = doc(db, "presence", user.uid);
-    const setOnline = () => setDoc(presenceRef, { name:user.displayName, lastActive:serverTimestamp() });
+    const setOnline = () => setDoc(presenceRef, { name:user.displayName, email:(user.email||"").toLowerCase(), lastActive:serverTimestamp() });
     setOnline();
     const interval = setInterval(setOnline, 30000);
     const handleBeforeUnload = () => { deleteDoc(presenceRef); };
@@ -824,11 +1008,18 @@ export default function App() {
 
   const getEventsForName = (name) => todayEvents.filter(e => (e.staffs && e.staffs.includes(name)) || e.staff === name);
 
+  const resolveStaffName = (ou) => {
+    const matched = staffList.find(s => s.email && ou.email && s.email.toLowerCase() === ou.email.toLowerCase());
+    return matched ? matched.name : ou.name;
+  };
+
   useEffect(() => {
     const u1 = onSnapshot(collection(db,"projects"), snap => setProjects(snap.docs.map(d => ({id:d.id,...d.data()}))));
     const u2 = onSnapshot(collection(db,"deliveries"), snap => setDeliveries(snap.docs.map(d => ({id:d.id,...d.data()}))));
     const u3 = onSnapshot(collection(db,"staff"), snap => setStaffList(snap.docs.map(d => ({id:d.id,...d.data()}))));
-    return () => { u1(); u2(); u3(); };
+    const u4 = onSnapshot(collection(db,"tasks"), snap => setTasks(snap.docs.map(d => ({id:d.id,...d.data()}))));
+    const u5 = onSnapshot(collection(db,"events"), snap => setAllEvents(snap.docs.map(d => ({id:d.id,...d.data()}))));
+    return () => { u1(); u2(); u3(); u4(); u5(); };
   }, []);
   useEffect(() => {
     const onResize = () => setIsMobile(window.innerWidth < 768);
@@ -895,12 +1086,13 @@ export default function App() {
       <div style={{ padding:"0 14px 6px", fontSize:11, color:"#aaa" }}>접속 중 ({onlineUsers.length})</div>
       <div style={{ maxHeight:160, overflowY:"auto" }}>
         {onlineUsers.map(ou => {
-          const evs = getEventsForName(ou.name);
+          const resolvedName = resolveStaffName(ou);
+          const evs = getEventsForName(resolvedName);
           return (
-            <div key={ou.id} style={{ margin:"0 6px 6px", padding:"6px 8px", background:"#fff", borderRadius:6 }}>
+            <div key={ou.id} onClick={() => { setSelectedStaff(resolvedName); setDrawerOpen(false); }} style={{ margin:"0 6px 6px", padding:"6px 8px", background:"#fff", borderRadius:6, cursor:"pointer" }}>
               <div style={{ display:"flex", alignItems:"center", gap:5, marginBottom: evs.length?4:0 }}>
                 <span style={{ width:7, height:7, borderRadius:"50%", background:"#3B6D11", display:"inline-block" }} />
-                <span style={{ fontSize:12, fontWeight:500 }}>{ou.name}</span>
+                <span style={{ fontSize:12, fontWeight:500 }}>{resolvedName}</span>
               </div>
               {evs.map(e => (
                 <div key={e.id} style={{ fontSize:11, color:"#888", paddingLeft:12 }}>· {e.title}</div>
@@ -1012,7 +1204,7 @@ export default function App() {
           )}
 
           {tab==="sales" && <SalesTab projects={projects} staffList={staffList} user={user} />}
-          {tab==="staff" && <StaffTab staffList={staffList} />}
+          {tab==="staff" && <StaffTab staffList={staffList} tasks={tasks} />}
           {tab==="schedule" && <ScheduleTab staffList={staffList} user={user} />}
 
           {tab==="delivery" && (
@@ -1037,6 +1229,16 @@ export default function App() {
           {tab==="chat" && <ChatTab user={user} channel={channel} />}
         </div>
       </div>
+
+      {selectedStaff && (
+        <StaffDetailModal
+          name={selectedStaff}
+          projects={projects}
+          tasks={tasks}
+          events={allEvents}
+          onClose={() => setSelectedStaff(null)}
+        />
+      )}
     </div>
   );
 }
