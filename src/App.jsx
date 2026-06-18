@@ -101,7 +101,7 @@ function ScheduleTab({ staffList, user }) {
   const [viewItem, setViewItem] = useState(null);
   const [editItem, setEditItem] = useState(null);
   const [curDate, setCurDate] = useState(new Date());
-  const [form, setForm] = useState({ date:"", staff:"", title:"", note:"" });
+  const [form, setForm] = useState({ date:"", staffs:[], title:"", note:"" });
 
   useEffect(() => {
     const unsub = onSnapshot(collection(db,"events"), snap => setEvents(snap.docs.map(d => ({id:d.id,...d.data()}))));
@@ -116,10 +116,12 @@ function ScheduleTab({ staffList, user }) {
 
   const changeMonth = (d) => setCurDate(new Date(year, month+d, 1));
 
+  const getStaffs = (ev) => ev.staffs && ev.staffs.length ? ev.staffs : (ev.staff ? [ev.staff] : []);
+
   const openAddNew = (day) => {
     setEditItem(null);
     const dateStr = `${year}-${String(month+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
-    setForm({ date:dateStr, staff:staffList[0]?.name||"", title:"", note:"" });
+    setForm({ date:dateStr, staffs:staffList[0]?[staffList[0].name]:[], title:"", note:"" });
     setShowForm(true);
   };
 
@@ -127,15 +129,23 @@ function ScheduleTab({ staffList, user }) {
 
   const openEditFromView = () => {
     setEditItem(viewItem);
-    setForm({ date:viewItem.date, staff:viewItem.staff, title:viewItem.title, note:viewItem.note||"" });
+    setForm({ date:viewItem.date, staffs:getStaffs(viewItem), title:viewItem.title, note:viewItem.note||"" });
     setViewItem(null);
     setShowForm(true);
   };
 
+  const toggleStaff = (name) => {
+    setForm(f => {
+      const has = f.staffs.includes(name);
+      return { ...f, staffs: has ? f.staffs.filter(s => s !== name) : [...f.staffs, name] };
+    });
+  };
+
   const save = async () => {
-    if (!form.title) return;
-    if (editItem) await updateDoc(doc(db,"events",editItem.id), form);
-    else await addDoc(collection(db,"events"), { ...form, createdAt:serverTimestamp() });
+    if (!form.title || form.staffs.length === 0) return;
+    const data = { date:form.date, staffs:form.staffs, title:form.title, note:form.note };
+    if (editItem) await updateDoc(doc(db,"events",editItem.id), data);
+    else await addDoc(collection(db,"events"), { ...data, createdAt:serverTimestamp() });
     setShowForm(false);
   };
   const remove = async (id) => {
@@ -146,8 +156,6 @@ function ScheduleTab({ staffList, user }) {
     const idx = staffList.findIndex(s => s.name === name);
     return idx >= 0 ? [AV_BG[idx%AV_BG.length], AV_FG[idx%AV_FG.length]] : ["#F1EFE8","#5F5E5A"];
   };
-
-  const canEdit = viewItem && (viewItem.staff === user.displayName);
 
   const cells = [];
   for (let i=0;i<firstDay;i++) cells.push(null);
@@ -187,10 +195,16 @@ function ScheduleTab({ staffList, user }) {
                 {isToday ? <span style={{ display:"inline-flex", alignItems:"center", justifyContent:"center", width:18, height:18, borderRadius:"50%", background:"#185FA5", color:"#fff" }}>{day}</span> : day}
               </div>
               {dayEvents.map(ev => {
-                const [bg,fg] = staffColor(ev.staff);
+                const evStaffs = getStaffs(ev);
+                const [bg,fg] = staffColor(evStaffs[0]);
                 return (
                   <div key={ev.id} onClick={() => openView(ev)} style={{ display:"flex", alignItems:"center", gap:3, fontSize:10, padding:"1px 5px", borderRadius:4, marginBottom:2, background:bg, color:fg, cursor:"pointer" }}>
-                    <span style={{ width:13, height:13, borderRadius:"50%", background:fg, color:bg, display:"flex", alignItems:"center", justifyContent:"center", fontSize:8, fontWeight:500, flexShrink:0 }}>{ev.staff?.[0]}</span>
+                    <span style={{ display:"flex", flexShrink:0 }}>
+                      {evStaffs.slice(0,3).map((sn,idx) => {
+                        const [,sfg] = staffColor(sn);
+                        return <span key={idx} style={{ width:13, height:13, borderRadius:"50%", background:sfg, color:bg, display:"flex", alignItems:"center", justifyContent:"center", fontSize:8, fontWeight:500, marginLeft: idx>0?-4:0, border:"1px solid #fff" }}>{sn[0]}</span>;
+                      })}
+                    </span>
                     <span style={{ whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{ev.title}</span>
                   </div>
                 );
@@ -203,31 +217,29 @@ function ScheduleTab({ staffList, user }) {
       {viewItem && (
         <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.35)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:100 }}>
           <div style={{ background:"#fff", borderRadius:14, padding:24, width:340 }}>
-            {(() => {
-              const [bg,fg] = staffColor(viewItem.staff);
-              return (
-                <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:14 }}>
-                  <span style={{ width:10, height:10, borderRadius:"50%", background:fg, display:"inline-block" }} />
-                  <span style={{ fontSize:13, color:"#888" }}>{viewItem.date} · {viewItem.staff}</span>
-                </div>
-              );
-            })()}
+            <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:14, flexWrap:"wrap" }}>
+              {getStaffs(viewItem).map((sn,idx) => {
+                const [bg,fg] = staffColor(sn);
+                return (
+                  <span key={idx} style={{ display:"flex", alignItems:"center", gap:4, background:bg, color:fg, padding:"3px 10px", borderRadius:14, fontSize:12, fontWeight:500 }}>
+                    <span style={{ width:16, height:16, borderRadius:"50%", background:fg, color:bg, display:"flex", alignItems:"center", justifyContent:"center", fontSize:9 }}>{sn[0]}</span>
+                    {sn}
+                  </span>
+                );
+              })}
+            </div>
+            <div style={{ fontSize:13, color:"#888", marginBottom:6 }}>{viewItem.date}</div>
             <h3 style={{ marginBottom:14, fontWeight:500, fontSize:17 }}>{viewItem.title}</h3>
             {viewItem.note ? (
               <div style={{ fontSize:13, color:"#555", lineHeight:1.7, background:"#f8f8f8", borderRadius:8, padding:"10px 12px", marginBottom:16, whiteSpace:"pre-wrap" }}>{viewItem.note}</div>
             ) : (
               <div style={{ fontSize:13, color:"#bbb", marginBottom:16 }}>메모 없음</div>
             )}
-            {!canEdit && (
-              <div style={{ fontSize:12, color:"#aaa", marginBottom:10 }}>담당 직원만 수정·삭제할 수 있어요</div>
-            )}
             <div style={{ display:"flex", justifyContent:"space-between" }}>
-              {canEdit ? (
-                <button onClick={() => remove(viewItem.id)} style={{ padding:"8px 16px", borderRadius:6, border:"1px solid #fcc", background:"#fff", color:"#E24B4A", cursor:"pointer" }}>삭제</button>
-              ) : <div />}
+              <button onClick={() => remove(viewItem.id)} style={{ padding:"8px 16px", borderRadius:6, border:"1px solid #fcc", background:"#fff", color:"#E24B4A", cursor:"pointer" }}>삭제</button>
               <div style={{ display:"flex", gap:8 }}>
                 <button onClick={() => setViewItem(null)} style={{ padding:"8px 16px", borderRadius:6, border:"1px solid #ddd", background:"#fff", cursor:"pointer" }}>닫기</button>
-                {canEdit && <button onClick={openEditFromView} style={{ padding:"8px 16px", borderRadius:6, border:"none", background:"#185FA5", color:"#fff", cursor:"pointer" }}>수정</button>}
+                <button onClick={openEditFromView} style={{ padding:"8px 16px", borderRadius:6, border:"none", background:"#185FA5", color:"#fff", cursor:"pointer" }}>수정</button>
               </div>
             </div>
           </div>
@@ -239,10 +251,24 @@ function ScheduleTab({ staffList, user }) {
           <div style={{ background:"#fff", borderRadius:14, padding:24, width:340 }}>
             <h3 style={{ marginBottom:16, fontWeight:500 }}>{editItem ? "일정 수정" : "일정 추가"} · {form.date}</h3>
             <div style={{ marginBottom:10 }}>
-              <div style={{ fontSize:12, color:"#888", marginBottom:3 }}>담당 직원</div>
-              <select value={form.staff} onChange={e => setForm({...form,staff:e.target.value})} style={{ width:"100%", padding:"8px 10px", borderRadius:6, border:"1px solid #ddd", fontSize:13 }}>
-                {staffList.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
-              </select>
+              <div style={{ fontSize:12, color:"#888", marginBottom:6 }}>참여 직원 (여러 명 선택 가능)</div>
+              <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+                {staffList.map((s,i) => {
+                  const active = form.staffs.includes(s.name);
+                  return (
+                    <button key={s.id} onClick={() => toggleStaff(s.name)} style={{
+                      display:"flex", alignItems:"center", gap:5, padding:"5px 12px", borderRadius:16, fontSize:12, cursor:"pointer",
+                      border: active ? `1px solid ${AV_FG[i%AV_FG.length]}` : "1px solid #ddd",
+                      background: active ? AV_BG[i%AV_BG.length] : "#fff",
+                      color: active ? AV_FG[i%AV_FG.length] : "#888"
+                    }}>
+                      <span style={{ width:14, height:14, borderRadius:"50%", background:AV_FG[i%AV_FG.length], color:"#fff", display:"flex", alignItems:"center", justifyContent:"center", fontSize:8 }}>{s.name[0]}</span>
+                      {s.name}
+                    </button>
+                  );
+                })}
+              </div>
+              {form.staffs.length === 0 && <div style={{ fontSize:11, color:"#E24B4A", marginTop:6 }}>최소 1명 선택해 주세요</div>}
             </div>
             <div style={{ marginBottom:10 }}>
               <div style={{ fontSize:12, color:"#888", marginBottom:3 }}>일정 제목</div>
